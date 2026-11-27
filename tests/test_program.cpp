@@ -28789,6 +28789,56 @@ TEST(issue10_auto_return_torso_keeps_its_limit_headless) {
   EXPECT(issue10_twist(true) <= 1.001f);
   EXPECT(issue10_twist(false) > 1.5f);  // the original's: well past
 }
+// Issue #10 item 1: FREELOOK or TOGGLE_TMODE on the middle button with no key
+// did nothing (0x0051c2b0 kept no callback for a keyless command). The press
+// itself, in a mission: the view changes with `fixed`, not on the exe's path.
+namespace {
+struct MiddleRun {
+  int before = -1, after = -1;
+  bool bound = false;
+};
+MiddleRun issue10_middle(int32_t cmd, bool fixed) {
+  platform::MouseState mouse;
+  g_cheat_mouse = &mouse;
+  static int32_t s_cmd;
+  s_cmd = cmd;
+  g_cheat_mission_at_start = [] {  // the report's map: the command on the middle button, its key slots empty
+    zin::bind_key1(0, s_cmd), zin::bind_key2(0, s_cmd), zin::bind_mouse(0, s_cmd);
+    zin::bind_mouse(3, s_cmd);
+    zin::map_refresh();
+    // A fresh run's: the launch's first player_controls (0x00427280) gives the callbacks.
+    zin::current_map()->callbacks[s_cmd] = nullptr;
+  };
+  zfix::options().fixed = fixed;
+  MiddleRun r;
+  cheat_mission("issue10_middle_write", 0, 1, 900, [&](int f, mech3::GameEngine&, CheatKeys&) {
+    auto* c = mech3::player_controls_instance();
+    if (f == 2 && c) {
+      if (cmd == 0x17) c->view = 0;  // FREELOOK toggles 0 and 1
+      r.before = c->view;
+      r.bound = zin::mouse_command(3) == cmd && zin::key1_of(cmd) == 0 && zin::key2_of(cmd) == 0;
+    }
+    mouse.buttons[2] = f >= 5 && f < 8 ? 0x80 : 0;  // the middle button pressed, held, let go
+    if (f == 20 && c) r.after = c->view;
+    return f >= 20;
+  });
+  g_cheat_mission_at_start = nullptr;
+  g_cheat_mouse = nullptr;
+  zfix::options().fixed = true;
+  std::printf("  issue 10 item 1 (cmd %#x, fixed %d): middle button alone %d, view %d -> %d\n", cmd, fixed, r.bound,
+              r.before, r.after);
+  return r;
+}
+}  // namespace
+TEST(issue10_middle_button_alone_toggles_the_view_headless) {
+  if (!have_game()) return;
+  for (const int32_t cmd : {0x17, 0x16}) {  // FREELOOK, TOGGLE_TMODE
+    const MiddleRun on = issue10_middle(cmd, true), off = issue10_middle(cmd, false);
+    EXPECT(on.bound && off.bound && on.before >= 0 && off.before >= 0);
+    EXPECT(on.after != on.before);    // the press acts
+    EXPECT(off.after == off.before);  // the original's: nothing
+  }
+}
 // Playtest W50 (c1m2 on the Mac, v1.0): "Destroy Missile Platforms
 // OP: Baker" stays In Progress; triturret02 vanished with no wreck while its
 // triangle and target box (empty) stayed. The tripod turrets start facing

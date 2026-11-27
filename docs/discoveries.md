@@ -3100,7 +3100,7 @@ From the view and its cameras (0x40aca0, 0x430e70; details: `view.md`).
   down at a field base and repair) did nothing until the game was closed and
   started again. A command put only on a joystick or mouse button was skipped
   the same way. (From the code as ported: 0x0051c2b0, 0x00427280. Reported on
-  the rebuild as issue #4; fixed in the rebuild.)
+  the rebuild as issues #4 and #10; fixed in the rebuild.)
 
 - **Save your stick setup, unplug the stick, and the mech drives itself.** The game
   only forgets the stick's axes when your controls file exactly matches the

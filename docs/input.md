@@ -180,7 +180,8 @@ player's commands get theirs once a run, at the first mission. One with no
 key then (SHUTDOWN in a map saved without it) never ran its callback, even
 after a key was bound and the map rebuilt, until the game was started again
 (issue #4); a command on a stick or mouse button alone never ran one (issue #10 item 1: FREELOOK or TOGGLE_TMODE on the middle button with no key did nothing). The
-port keeps the callback anyway (FIX (bug), fixes.md).
+port keeps the callback anyway (FIX (bug), fixes.md); `issue10_middle_button_alone_toggles_the_view_headless`
+presses the middle button in a mission and sees the view change, and not on the exe's path.
 
 ## 4. The joystick
 
