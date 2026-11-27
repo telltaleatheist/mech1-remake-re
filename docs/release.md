@@ -238,9 +238,10 @@ Moon.app".
 - [ ] No version ends in `-dirty`, and the combined package's file names carry
       main's version, PM alone's pm's.
 - [ ] Every platform's files gathered in one folder and
-      `python3 -I tools/package/sums.py <folder>` run over all of them: that
-      SHA256SUMS goes up with the release (**required**: the updater installs
-      nothing without its line).
+      `MW3_SIGNING_KEY=<key file> python3 -I tools/package/sums.py <folder>`
+      run over all of them: that SHA256SUMS and its SHA256SUMS.sig go up
+      with the release (SHA256SUMS **required**: the updater installs nothing
+      without its line; the .sig lets a launcher take it from the mirror).
 
 ### Checking
 
@@ -356,7 +357,8 @@ why of each):
 4. Built on all three platforms from the tags: the Mac here, Windows on the
    PC (a git bundle of the tags), Linux in WSL after Windows.
 5. Every file in one folder, checked against its platform's sums, then
-   `python3 -I tools/package/sums.py <folder>`.
+   `MW3_SIGNING_KEY=<key file> python3 -I tools/package/sums.py <folder>`
+   (SHA256SUMS and SHA256SUMS.sig).
 6. Tags pushed; the hub's release published first, then each game's own.
 7. Every asset downloaded again and checked; the previous launcher's update
    check finds the new release; the download page shows it.
