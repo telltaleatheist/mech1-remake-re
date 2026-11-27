@@ -863,6 +863,12 @@ std::vector<DiscSource> find_discs() {
     std::error_code ec;
     return fs::exists(root / "DATA1.HDR", ec) || fs::exists(root / "data1.hdr", ec);
   };
+  if (const char* at = std::getenv("MW3_DISC_DRIVES")) {  // checks: stand-in drives
+    std::error_code ec;
+    for (const auto& e : fs::directory_iterator(fs::path(at), ec))
+      if (e.is_directory(ec) && has_disc(e.path())) out.push_back({e.path().string(), e.path().filename().string()});
+    return out;
+  }
 #if defined(_WIN32)
   const DWORD drives = GetLogicalDrives();
   for (int i = 0; i < 26; ++i) {
