@@ -54,13 +54,15 @@ std::vector<std::string> video_dirs(const std::string& source) {
   return dirs;
 }
 
-// A movie in two of them (VIDEO\C1.AVI and video\c1.avi) counts once, as mw3import makes it once.
+// A movie in two of them (VIDEO\C1.AVI and video\c1.avi) counts once, as mw3import makes it once; a compact
+// original's <name>.webm (docs/compact.md) counts as its AVI would.
 int movies_missing(const std::string& source, const std::string& write_dir) {
   std::error_code ec;
   std::set<std::string> names;
   for (const std::string& dir : video_dirs(source))
     for (fs::directory_iterator it(dir, ec), end; !ec && it != end; it.increment(ec)) {
-      if (lower(it->path().extension().string()) != ".avi") continue;
+      const std::string ext = lower(it->path().extension().string());
+      if (ext != ".avi" && ext != ".webm") continue;
       const std::string name = lower(it->path().stem().string());
       if (!fs::exists(fs::path(write_dir) / "video" / (name + ".fmv"), ec)) names.insert(name);
     }

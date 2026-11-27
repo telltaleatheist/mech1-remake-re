@@ -98,6 +98,7 @@ add_library(mw3core STATIC
   src/mech3/patch_import.cpp
   src/mech3/disc_install.cpp
   src/mech3/source_map.cpp
+  src/mech3/compact.cpp
   src/mech3/source_install.cpp
   src/mech3/game_setup.cpp
   src/gamez/zutil/zutl_zar.cpp

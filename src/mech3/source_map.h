@@ -34,6 +34,7 @@ struct Found {
   std::string data_track;      // a cue's data track's entry (or file)
   int raw_offset = 16;         // the data track's sectors (2352: 16 or 24; 2048: 0)
   bool raw = false;
+  std::string compact;         // a compact original's words (its manifest: mech3/compact.h), else ""
   std::string summary;         // what to tell the player
   std::string detail;          // what was read, for the log
   bool cancelled = false;      // the look was stopped (MapProgress)
