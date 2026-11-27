@@ -2,16 +2,25 @@
 # Builds "MechWarrior 3.app" and its DMG for Mac players (docs/macos.md):
 # a package build (MW3_PACKAGE: no development copy of the game in it), the
 # libraries it loads copied into Contents/Frameworks with their paths
-# rewritten to @rpath, the icon, Info.plist, every binary signed ad hoc
-# (no identity, so no name in the signature: the releases are not Developer
-# ID signed or notarized, docs/macos.md), then the DMG.
+# rewritten to @rpath, the icon, Info.plist, every binary signed, then the
+# DMG, signed, notarized and stapled (docs/macos.md, Signing).
 #
 #   tools/macos/make_app.sh                          run from the repo root
-#   tools/macos/make_app.sh --identity "<IDENTITY>"  opt-in, never for releases:
-#        signs with that keychain identity and the hardened runtime instead
 #   tools/macos/make_app.sh --deps                   the release form: universal
 #        (arm64, x86_64), macOS 12 and later, against the libraries
 #        tools/deps/build_deps.sh mac built (build-deps/mac/prefix), not Homebrew's
+#
+# Signing (2026-11-26: releases are Developer ID signed and notarized) is the setup kit's
+# (extern/re-setup-kit/tools/macos/sign_notarize.sh, its header and README), from the environment, so no
+# name or team is ever in the repo:
+#   RE_SIGN_IDENTITY    the keychain's "Developer ID Application: ..." identity (its name or SHA-1), the
+#                       hardened runtime and a secure timestamp. Unset: ad hoc.
+#   RE_NOTARY_PROFILE   a notarytool keychain profile (xcrun notarytool store-credentials): the DMG
+#                       notarized, its ticket stapled, Gatekeeper's verdict checked.
+#   RE_ALLOW_UNSIGNED=1 a build that will not be notarized goes on (development builds, install_app.sh);
+#                       refused without it, so an unnotarized DMG never reaches a release.
+#   The MW3_SIGN_IDENTITY, MW3_NOTARY_PROFILE and MW3_ALLOW_UNSIGNED names are read too.
+#   --identity "<IDENTITY>" is RE_SIGN_IDENTITY given on the command line.
 #
 # Out: build-mac/dist/MechWarrior 3.app and
 #      build-mac/dist/MW3-Rebuild-<git describe>-mac.dmg
@@ -27,16 +36,20 @@
 #                                       downloads each game (2026-11-22; docs/launcher.md, Games on demand)
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-ID="-"  # ad hoc
+SIGNER=extern/re-setup-kit/tools/macos/sign_notarize.sh
 DEPS=""
 while [ $# -gt 0 ]; do
   case "$1" in
-    --identity) ID="${2:?--identity needs a name}"; shift 2 ;;
+    --identity) export RE_SIGN_IDENTITY="${2:?--identity needs a name}"; shift 2 ;;
     --deps) DEPS="$PWD/build-deps/mac/prefix"; shift ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
 done
 if [ -n "$DEPS" ] && [ ! -d "$DEPS/lib" ]; then echo "no $DEPS: run tools/deps/build_deps.sh mac first" >&2; exit 1; fi
+# Notarized, or said why not, before anything is built.
+[ -x "$SIGNER" ] || { echo "no $SIGNER: git submodule update --init" >&2; exit 1; }
+MODE=$("$SIGNER" check)  # refused here unless it will be notarized or RE_ALLOW_UNSIGNED=1
+NOTARIZE=0; [ "$MODE" = notarize ] && NOTARIZE=1
 if [ -z "$DEPS" ]; then
   echo "note: Homebrew's libraries (this Mac's macOS, arm64 only); THIRD-PARTY.txt describes the --deps build: not for release" >&2
 fi
@@ -246,8 +259,22 @@ if [ -n "$PM_BIN" ] || [ -n "$LAUNCHER_ONLY" ]; then SHOWN="BattleTech"; fi
 mkdir -p "$APP/Contents/Resources/en.lproj"
 printf 'CFBundleName = "%s";\nCFBundleDisplayName = "%s";\n' "$SHOWN" "$SHOWN" > "$APP/Contents/Resources/en.lproj/InfoPlist.strings"
 
-# The read-me and the notices beside the program.
-cp tools/macos/README.txt "$APP/Contents/Resources/README.txt"
+# The read-me and the notices beside the program: its first-open paragraph the notarized build's or the other's.
+mkdir -p build-mac
+python3 -I - "$NOTARIZE" tools/macos/README.txt build-mac/README.txt <<'PY'
+import sys
+want = '[notarized]' if sys.argv[1] == '1' else '[unsigned]'
+out, keep = [], True
+for line in open(sys.argv[2]).read().splitlines(keepends=True):
+    tag = line.strip()
+    if tag in ('[notarized]', '[unsigned]', '[end]'):
+        keep = tag in (want, '[end]')
+        continue
+    if keep:
+        out.append(line)
+open(sys.argv[3], 'w').write(''.join(out))
+PY
+cp build-mac/README.txt "$APP/Contents/Resources/README.txt"
 if [ -f LICENSE ]; then cp LICENSE "$APP/Contents/Resources/LICENSE.txt"; fi
 mkdir -p "$APP/Contents/Resources/assets/fonts" "$APP/Contents/Resources/licenses/liberation" "$APP/Contents/Resources/licenses/anton"
 cp assets/fonts/*.ttf "$APP/Contents/Resources/assets/fonts/"
@@ -267,20 +294,14 @@ if [ -n "$DEPS" ]; then
   cp -R "$DEPS/share/licenses/." "$APP/Contents/Resources/licenses/"
 fi
 
-# Signing: the libraries first, then the app. Ad hoc by default (the
-# release form: macOS asks once before the first open, README.txt). With
-# --identity: the hardened runtime and a secure timestamp too.
-# tools/macos/mw3.entitlements grants nothing: the app needs no exception.
-if [ "$ID" = "-" ]; then SIGN=(--force --sign -); else SIGN=(--force --timestamp --options runtime --sign "$ID"); fi
-for f in "$APP"/Contents/Frameworks/*.dylib; do
-  codesign "${SIGN[@]}" "$f"
-done
-# The game and the importer, second programs in Contents/MacOS, before the app that seals them.
+# Signing (the kit's script): every Mach-O inside first (the libraries; the game and the importer, second programs
+# in Contents/MacOS), then the app that seals them. tools/macos/mw3.entitlements grants nothing: the app needs no
+# exception.
+ENTS=(--entitlements tools/macos/mw3.entitlements)
 for p in mw3 mw3import mw3pm mw1; do
-  if [ -f "$APP/Contents/MacOS/$p" ]; then codesign "${SIGN[@]}" --entitlements tools/macos/mw3.entitlements "$APP/Contents/MacOS/$p"; fi
+  if [ -f "$APP/Contents/MacOS/$p" ]; then ENTS+=(--entitlements-for "Contents/MacOS/$p" tools/macos/mw3.entitlements); fi
 done
-codesign "${SIGN[@]}" --entitlements tools/macos/mw3.entitlements "$APP"
-codesign --verify --deep --strict --verbose=2 "$APP"
+"$SIGNER" app "$APP" "${ENTS[@]}"
 # The package carries both programs, the launcher as the app's executable.
 PROGRAMS="mw3launcher mw3"
 if [ -n "$LAUNCHER_ONLY" ]; then
@@ -301,10 +322,12 @@ STAGE="build-mac/dmg"
 rm -rf "$STAGE" "$DMG" && mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
-cp tools/macos/README.txt "$STAGE/Read me.txt"
+cp build-mac/README.txt "$STAGE/Read me.txt"
 # No local path or user name in anything shipped (release.md, Privacy).
 python3 -I tools/deps/check_paths.py "$STAGE" || exit 1
 hdiutil create -volname "$NAME" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
-if [ "$ID" != "-" ]; then codesign --force --timestamp --sign "$ID" "$DMG"; fi
+# The DMG signed; when notarizing, its ticket stapled to it and to the app here, Gatekeeper's verdict on both, and
+# a rejection stops the build with Apple's log (the kit's script).
+"$SIGNER" dmg "$DMG" "$APP"
 echo "App: $APP"
 echo "DMG: $DMG"

@@ -30,14 +30,9 @@ THIRD-PARTY.txt describes the `--deps` build.
 - `Info.plist`: bundle id `com.owenmorgan.mw3rebuild`, the version from
   git, `LSMinimumSystemVersion` from the binary (see below), games
   category.
-- Signed **ad hoc** (`codesign -s -`): the code is sealed, but no identity
-  or name is in the signature (2026-10-30: the releases are not
-  Developer ID signed and not notarized, for his privacy; he publishes as
-  the developer). `tools/macos/mw3.entitlements` grants nothing: the app needs
-  no exception. The DMG is not signed.
-- An explicit opt-in, `--identity "<IDENTITY>"`, signs with a keychain
-  identity, the hardened runtime and a secure timestamp instead; never used
-  for releases.
+- Signed and notarized (see Signing, below): every Mach-O, then the app,
+  then the DMG. `tools/macos/mw3.entitlements` grants nothing: the app needs
+  no exception.
 
 The game's files, settings and saves go to the write dir,
 `~/Library/Application Support/BattleTech/MechWarrior 3/`, as for the
@@ -61,13 +56,46 @@ names libbrotlicommon so): `make_app.sh` finds those beside the library that
 loads them, or in Homebrew's lib, and bundles them too. Before that, the app
 stopped at launch with "Library not loaded: @rpath/libbrotlicommon.1.dylib".
 
+## Signing (2026-11-26)
+
+Releases are Developer ID signed and notarized from the next one on (every
+release before was signed ad hoc, with no identity, and macOS asked once
+before the first open). `make_app.sh` does it through the setup kit's
+`extern/re-setup-kit/tools/macos/sign_notarize.sh`, the script every game's
+build and the launcher's use (the kit's README, Mac signing). It takes the
+identity and the notary profile from the environment, so no name or team ID
+is ever in the repo: `RE_SIGN_IDENTITY` (the keychain's Developer ID
+Application identity, its name or SHA-1) and `RE_NOTARY_PROFILE` (a
+`xcrun notarytool store-credentials` profile); the `MW3_SIGN_IDENTITY`,
+`MW3_NOTARY_PROFILE` and `MW3_ALLOW_UNSIGNED` names are read too. This
+replaces the 2026-10-30 rule (ad hoc, no identity in the signature): the
+legal name and team ID appear only in the Developer ID signature of the Mac
+packages; nowhere else (release.md, Privacy).
+
+- Signed: every Mach-O inside the app (the libraries, then mw3 and
+  mw3import with `mw3.entitlements`), then the app, with the hardened runtime
+  and a secure timestamp. Then the DMG.
+- Notarized: the DMG, `notarytool submit --wait`; Accepted is stapled to the
+  DMG and to the app beside it, `stapler validate`, and `spctl` must say
+  "Notarized Developer ID" for both. A rejection prints Apple's log and fails
+  the build.
+- A build that would not be notarized (no identity, no profile, or the
+  profile not in the keychain) is refused before anything is built unless
+  `RE_ALLOW_UNSIGNED=1` (development builds; `install_app.sh` sets it). Its
+  README.txt keeps the right-click > Open paragraph; a notarized one says it
+  opens like any other app (`[notarized]`/`[unsigned]` in
+  tools/macos/README.txt, picked by make_app.sh).
+
 ## The first open
 
-An app without a Developer ID signature and notarization is blocked by
-Gatekeeper on its first open. The player opens it once by right-click (or
-Control-click) > Open > Open, or after a blocked attempt, System Settings >
-Privacy & Security > "Open Anyway"; macOS remembers it after that. The
-README says so.
+A notarized app opens like any other. A build that is not (one built with
+`install_app.sh`, or any earlier release) is blocked by Gatekeeper on
+its first open. The player opens it once by right-click (or Control-click)
+> Open > Open, or after a blocked attempt, System Settings > Privacy &
+Security > "Open Anyway"; macOS remembers it after that. That build's README
+says so. Gatekeeper checks only what carries the quarantine flag (a
+browser's download): a game the launcher downloads and installs itself has
+none.
 
 ## Which macOS it runs on, and Intel Macs
 
