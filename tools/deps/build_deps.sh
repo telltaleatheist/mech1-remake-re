@@ -98,13 +98,17 @@ echo "built SDL3_sound"
 fi
 
 # FFmpeg: only what mw3import uses (the AVI demuxer, the Indeo 5 decoder,
-# the MPEG-1 video encoder and muxer, swscale, the file protocol), LGPL 2.1,
-# shared. FFmpeg configures one architecture at a time: on the Mac each is
+# the MPEG-1 video encoder and muxer, swscale, the file protocol; since
+# 2026-11-27 the compact original's movies too: the Matroska/WebM demuxer, the
+# VP9 and FLAC decoders and parsers and the FLAC demuxer, all FFmpeg's own),
+# LGPL 2.1, shared. FFmpeg configures one architecture at a time: on the Mac each is
 # built and installed apart, then the dylibs are joined with lipo.
 FFMPEG_OPTS=(--enable-shared --disable-static --disable-everything --disable-autodetect --disable-programs
              --disable-doc --disable-network --disable-avdevice --disable-avfilter --disable-swresample
              --enable-protocol=file --enable-demuxer=avi --enable-decoder=indeo5 --enable-encoder=mpeg1video
-             --enable-muxer=mpeg1video --enable-swscale)
+             --enable-muxer=mpeg1video --enable-swscale
+             --enable-demuxer=matroska --enable-demuxer=flac --enable-decoder=vp9 --enable-decoder=flac
+             --enable-parser=vp9 --enable-parser=flac)
 unpack ffmpeg-8.1.2.tar.xz
 # FFmpeg keeps its configure line in each library (avutil_configuration()),
 # so the prefix is a neutral /ffbuild and the install goes through DESTDIR:

@@ -6,6 +6,7 @@
 #include <fstream>
 
 #include "gamez/zutil/zutl_zar.h"
+#include "mech3/compact.h"
 #include "mech3/data_version.h"
 #include "mech3/patch_import.h"
 #include "mech3/source_archive.h"
@@ -119,6 +120,7 @@ std::string game_words(const Found& f) {
   if (f.game == Found::kPiratesMoon)
     return "This is MechWarrior 3: Pirate's Moon, a game of its own: in the launcher, click PIRATE'S MOON, then GAME FILES, and give it there.";
   if (f.game != Found::kMw3) return "";
+  if (!f.compact.empty()) return f.compact + ".";
   std::string v = f.version.empty() ? "" : " version " + f.version;
   if (f.kind == Found::kInstall) return "An installed copy of MechWarrior 3" + v + ".";
   std::string s = "The MechWarrior 3 disc" + v;
@@ -136,6 +138,9 @@ Found from_kit(const rekit::Found& k) {
   f.audio = k.audio, f.audio_track = k.audio_track, f.audio_start = k.audio_start;
   f.data_track = k.data_track, f.raw_offset = k.raw_offset, f.raw = k.raw;
   f.detail = k.detail, f.cancelled = k.cancelled;
+  if (f.kind == Found::kInstall && k.steps.empty())  // a compact original picked as it came (docs/compact.md)
+    if (compact::Manifest m; compact::peek(f.path, f.on_disk, f.root, &m) && m.game == (f.game == Found::kPiratesMoon ? "pm" : "mw3"))
+      f.compact = compact::words(m);
   if (f.cancelled) {
     f.kind = Found::kNothing;
     f.summary = "Stopped. Nothing was changed.";

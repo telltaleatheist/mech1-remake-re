@@ -1,4 +1,5 @@
 #include "mech3/game_setup.h"
+#include "mech3/compact.h"
 #include "rekit/files.h"
 
 #include <algorithm>
@@ -256,8 +257,26 @@ Result install_from_source(const source::Found& found, const std::string& out_di
     };
     if (!fs::exists(fs::path(tmp) / "zbd" / "reader.zbd", ec))
       return abandon("Nothing was installed: the copy's zbd\\reader.zbd was not found again.");
+    // A compact original (docs/compact.md): every file checked against its manifest, its music moved to the music
+    // folder as a disc's is; its movies stay in video\ for the first start's import.
+    compact::Manifest cm;
+    const bool is_compact = fs::exists(fs::path(tmp) / compact::kManifest, ec);
+    int compact_music = 0;
+    if (is_compact) {
+      if (!p(Progress{"Checking the files", 0.95, ""})) {
+        r.cancelled = true;
+        return abandon("The installation was cancelled. Nothing was changed.");
+      }
+      std::string why;
+      if (!compact::verify(tmp, pm ? "pm" : "mw3", &cm, &why)) return abandon("Nothing was installed: " + why);
+      const fs::path music = fs::path(tmp) / "music";
+      if (fs::is_directory(music, ec)) {
+        if (!music_dir.empty()) compact_music = move_files_in(music.string(), music_dir);
+        fs::remove_all(music, ec);
+      }
+    }
     const std::string note = "Installed by mw3 from " + found.path + " (docs/setup-sources.md).\nfiles=" +
-                             std::to_string(s.files) + "\n";
+                             std::to_string(s.files) + "\n" + (is_compact ? "compact=" + cm.name + "\n" : std::string());
     std::FILE* m = std::fopen((fs::path(tmp) / "mw3-install.txt").string().c_str(), "wb");
     const bool marked = m && std::fwrite(note.data(), 1, note.size(), m) == note.size();
     const bool closed = m && std::fclose(m) == 0;
@@ -273,6 +292,11 @@ Result install_from_source(const source::Found& found, const std::string& out_di
     r.files = s.files, r.bytes = s.bytes;
     if (r.ok) r.summary = version_words(r.version, pm) + " is installed in " + out_dir + " (" + std::to_string(s.files) +
                           " files, " + mb(s.bytes) + "), copied from " + fs::path(found.path).filename().string() + ".";
+    if (r.ok && is_compact) {
+      r.music_tracks = compact_music;
+      r.summary = version_words(r.version, pm) + " is installed in " + out_dir + " from " + compact::words(cm) + ", every file checked." +
+                  (compact_music ? " Its music was added too." : "") + " The movies are converted at the first start.";
+    }
     p(Progress{"Done", 1, ""});
     return r;
   }

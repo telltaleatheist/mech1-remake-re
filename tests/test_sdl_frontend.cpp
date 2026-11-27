@@ -8310,6 +8310,20 @@ TEST(sdl_importer_progress_is_followed_while_it_pauses) {
 // the data in one folder): every case of the folder is read, by the launcher's count and by
 // mw3import, so a movie left over after a stopped or failed run is still found (zutl::any_case
 // took the exact "video", the converted ones, and the AVIs were never seen again).
+// A compact original's movie (docs/compact.md): <name>.webm beside its .flac and .fmvh counts as one to convert until
+// its .fmv is made, as an .avi does.
+TEST(sdl_compact_movies_count_as_missing) {
+  const std::string root = std::string(MW3_TEST_TMP) + "/compact_movies";
+  std::error_code ec;
+  std::filesystem::remove_all(root, ec);
+  std::filesystem::create_directories(root + "/video", ec);
+  for (const char* m : {"c1.webm", "c1.flac", "c1.fmvh", "c2.webm", "c2.flac", "c2.fmvh"}) std::ofstream(root + "/video/" + m) << "x";
+  EXPECT(sdlfe::movies_missing(root, root) == 2);
+  std::ofstream(root + "/video/c1.fmv") << "x";
+  EXPECT(sdlfe::movies_missing(root, root) == 1);
+  std::filesystem::remove_all(root, ec);
+}
+
 TEST(sdl_movies_found_in_every_case_of_the_video_folder) {
   const char* cs = SDL_getenv("MW3_CASE_TMP");  // a case-sensitive folder (a disk image on the Mac)
   const std::string root = (cs ? std::string(cs) : std::string(MW3_TEST_TMP)) + "/video_cases";
