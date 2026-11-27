@@ -12538,6 +12538,32 @@ TEST(sdl_pm_program_status_finds_as_the_launcher) {
          st.notes_once == 2 && st.notes.size() == 2);  // all shown once, the music's too (pm_notes= covers them)
   if (st.notes.size() == 2) EXPECT(st.notes[0].find("Its zbd\\soundsH.zbd is missing") == 0 && st.notes[1].find("No music yet") == 0);
   EXPECT(st.lacks == std::vector<std::string>({"music", "full-quality sounds"}) && st.missing.empty());
+  {  // no copy where it looks (2026-11-27): Pirate's Moon's disc in a drive offered (ready, the search's note), never
+     // taken; MechWarrior 3's there is not Pirate's Moon's; none: missing
+    rekit::Status st;  // its own: the --copies check below reads the first status
+    const std::string mw3_hdr = std::string(MW3_GAME_DIR) + "/../patch-1.2/MechWarrior-3_Patch_Win_EN_Patch-12-US/data1.hdr";
+    const std::string pm_hdr = std::string(MW3_GAME_DIR) + "/../pm-disc/iso/DATA1.HDR";
+    fs::create_directories(dir + "/drives/empty", ec), fs::create_directories(dir + "/wd-disc", ec);
+    setenv("MW3_DISC_DRIVES", (dir + "/drives").c_str(), 1);
+    const std::string none = run(MW3_BIN, {"--status", "--write-dir", dir + "/wd-disc"}, "disc-none", &code);
+    EXPECT(code == 0 && rekit::parse_status(none, &st) && st.state == rekit::Status::kMissing && st.where.empty());
+    if (fs::exists(mw3_hdr) && fs::exists(pm_hdr)) {
+      fs::create_directories(dir + "/drives/MW3", ec);
+      fs::copy_file(mw3_hdr, dir + "/drives/MW3/DATA1.HDR", ec);
+      const std::string mw3_only = run(MW3_BIN, {"--status", "--write-dir", dir + "/wd-disc"}, "disc-mw3", &code);
+      EXPECT(code == 0 && rekit::parse_status(mw3_only, &st) && st.state == rekit::Status::kMissing && st.where.empty());
+      fs::create_directories(dir + "/drives/PM", ec);
+      fs::copy_file(pm_hdr, dir + "/drives/PM/DATA1.HDR", ec);
+      const std::string disc = run(MW3_BIN, {"--status", "--write-dir", dir + "/wd-disc"}, "disc-pm", &code);
+      std::printf("  a disc in a drive: %s", disc.c_str());
+      EXPECT(code == 0 && rekit::parse_status(disc, &st) && st.game == "mech3-pm" && st.state == rekit::Status::kReady &&
+             st.where == dir + "/drives/PM" && st.note == "found by the search, not set up yet" && st.data.empty());
+      EXPECT(!fs::exists(dir + "/wd-disc/mw3.cfg"));  // nothing saved
+    } else {
+      std::printf("  a disc in a drive: no disc headers in game/: skipped\n");
+    }
+    unsetenv("MW3_DISC_DRIVES");
+  }
   {  // the same words as its --copies row, from the same code
     rekit::SetupMessage m, row;
     const std::string c = run(MW3_BIN, {"--setup", "--copies", "--write-dir", dir + "/wd"}, "copies", &code);

@@ -845,7 +845,7 @@ int print_status(Args& a) {
     // search's finds are, never taken; looked at no further (its version and movies are the setup's look). So the
     // launcher fetches nothing a disc in the drive has.
     for (const mech3::setup::DiscSource& d : mech3::setup::find_discs())
-      if (mech3::source::disc_game(d.path) == mech3::source::Found::kMw3) {
+      if (mech3::source::disc_game(d.path) == mech3::source::Found::kPiratesMoon) {  // Pirate's Moon's own disc
         st.state = rekit::Status::kReady, st.where = d.path, st.note = "found by the search, not set up yet";
         break;
       }
