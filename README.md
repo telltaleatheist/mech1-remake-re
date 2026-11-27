@@ -72,6 +72,12 @@ it.
 `mw1 --version` prints the version. Version numbers: the second number is a
 feature update, the third is bug fixes.
 
+## What's new in 1.1.5
+
+A crash at quit after the sound output changed is fixed (SDL 3.4.20), and the Remake's copy of MechWarrior (1989) leaves
+out NEV_UNIV.EXE, a tool the download carries that is not part of the game. Nothing in play changes. The full notes:
+[mw1/dist/RELEASE-NOTES-1.1.5.md](mw1/dist/RELEASE-NOTES-1.1.5.md).
+
 ## What's new in 1.1.4
 
 On a Mac the Remake is signed and notarized, so it opens like any other app, and the release's checksums are signed so
