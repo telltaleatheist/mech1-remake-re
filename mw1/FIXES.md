@@ -5,6 +5,17 @@ Tick an item when it is merged into `main`.
 
 **How this file works (the owner, 2026-11-17):** every bug and feature the owner raises goes here, numbered, the moment he raises it. mw1 dev 1 works through the open items until all are done. The order is set by the lead at the bottom ("Order"). Each item is ticked `[x]`, with its branch, when it's merged into `mw1`. `[-]` means superseded.
 
+## 151. [ ] The download's NEV_UNIV.EXE came in with the game *(branch dev2/remake-original)*
+- **What (the mw3 lead, 2026-11-27):** the download of MechWarrior (1989) carries `NEV_UNIV.EXE` beside `BTECH.EXE`, a
+  tool that is not the game's (nothing in the game names it; `research/original-rebuild-scoping.md`, the exes). Unpacking
+  the download, or copying a folder that holds it, put it in `<write dir>/mw1/game` with the game.
+- **Done:** one leave-out list in `mw1_game_files.cpp` (`kLeaveOut`, the kit's `rekit::LeaveOut`), used by both the
+  unpacking (`unpack`, through `rekit::left_out`) and the copy (`copy_in`, through `rekit::copy_folder`). Matched by name
+  in any case. The player's own folder is never changed; only our copy leaves it out.
+- **Test:** `mw1tests` (`mw1_game_files_unpacks_a_download_into_the_write_dir`,
+  `mw1_game_files_copies_a_picked_folder_into_the_write_dir`) and ctest `mw1setup` (`install_leaves_out_the_tool`,
+  `download_leaves_out_the_tool`, through `mw1 --setup --install`). With the list emptied, all four checks fail.
+
 ## 150. [x] The hub ran past the right edge on a 16:10 screen with WIDE MENUS *(branch lead/remake-fixes)*
 - **Reported (mech1-remake-re issue #1, 2026-11-25):** at 1680x1050 with WIDE MENUS on, the hub's tiles went off the
   right of the screen.

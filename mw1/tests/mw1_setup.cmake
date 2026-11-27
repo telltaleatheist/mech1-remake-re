@@ -1,7 +1,8 @@
 # The Remake serves its own setup (mw3-re's docs/launcher-split.md a5, 2026-11-26): MechWarrior (1989)'s files through
 # `mw1 --setup <ask>` (mw1_recipe.h), on stand-in BTECH.EXE folders as test_mw1_files lays them out: the game's folder,
 # any file in it and a folder one or two above it found, a file beside it not; MechWarrior 3 refused in its words; an
-# install copied into <write dir>/mw1/game and saved as mw1_game=, a --folder left out; our copy in place and found by
+# install copied into <write dir>/mw1/game and saved as mw1_game=, NEV_UNIV.EXE (a tool beside the game) left out of it
+# and of a download, a --folder left out; our copy in place and found by
 # the search; a download unpacked (only the game's folder), a damaged or wrong one refused with the copy as it was; a
 # folder there we did not make never replaced. The status says setup 1 and takes the launcher's --with for its needs;
 # since b5 its needs are the other two games (never in its missing: a need given that does not hold its game is only
@@ -16,6 +17,7 @@ set(ours "${wd}/mw1/game")
 file(WRITE "${game}/btech.exe" "first")  # any case
 file(WRITE "${game}/MW_MAIN.EXE" "main")
 file(WRITE "${game}/SOUNDS/A.VOC" "voc")
+file(WRITE "${game}/NEV_UNIV.EXE" "tool")  # not the game's: left out of the copy and the unpacking
 file(WRITE "${DIR}/dos/other/readme.txt" "notes")
 
 # ask(name want-exit regex args...): mw1 on the scratch write dir; its last line (the done) must match.
@@ -68,6 +70,7 @@ expect(install_saved cfg STREQUAL want)
 expect(no_folder_claimed NOT EXISTS ${DIR}/elsewhere)
 file(READ "${ours}/SOUNDS/A.VOC" voc)
 expect(install_whole voc STREQUAL "voc" AND NOT EXISTS ${ours}.copying)
+expect(install_leaves_out_the_tool NOT EXISTS ${ours}/NEV_UNIV.EXE AND EXISTS ${ours}/MW_MAIN.EXE)
 ask(status_installed 0 "\"state\": \"ready\", \"where\": \"${ours}\"}" --status)
 file(REMOVE_RECURSE "${DIR}/dos")  # the original deleted: ours plays on
 ask(own_in_place 0 "\"ok\": true, \"in_place\": true, \"path\": \"${ours}\"" --setup --look "${ours}/btech.exe")
@@ -76,12 +79,19 @@ ask(search 0 "\"ok\": true, \"path\": \"${ours}\"" --setup --search)
 # A download: only the game's folder unpacked, replacing our copy whole.
 file(WRITE "${DIR}/z/MechWarrior (1989)/MW/BTECH.EXE" "second")
 file(WRITE "${DIR}/z/MechWarrior (1989)/readme.txt" "notes")
+file(WRITE "${DIR}/z/MechWarrior (1989)/MW/MW_MAIN.EXE" "main")
+file(WRITE "${DIR}/z/MechWarrior (1989)/MW/nev_univ.exe" "tool")  # any case
 execute_process(COMMAND ${CMAKE_COMMAND} -E tar cf "${DIR}/mw.zip" --format=zip "MechWarrior (1989)" WORKING_DIRECTORY "${DIR}/z")
 ask(download 0 "\"ok\": true, .*\"words\": \"A download of MechWarrior \\(1989\\).\", \"where\": \"${ours}\"" --setup --install "${DIR}/mw.zip")
 file(READ "${ours}/BTECH.EXE" exe)
 expect(download_taken exe STREQUAL "second" AND NOT EXISTS ${ours}/readme.txt AND NOT EXISTS ${ours}/SOUNDS)
+expect(download_leaves_out_the_tool NOT EXISTS ${ours}/nev_univ.exe AND NOT EXISTS ${ours}/NEV_UNIV.EXE AND EXISTS ${ours}/MW_MAIN.EXE)
 # Damaged (cut short) and wrong (no BTECH.EXE): refused, our copy as it was.
-execute_process(COMMAND sh -c "head -c 300 '${DIR}/mw.zip' > '${DIR}/cut.zip'")
+# Cut from a zip of a 4 KB BTECH.EXE alone, so the cut falls inside the game's own entry.
+string(RANDOM LENGTH 4096 big)
+file(WRITE "${DIR}/c/MechWarrior (1989)/MW/BTECH.EXE" "${big}")
+execute_process(COMMAND ${CMAKE_COMMAND} -E tar cf "${DIR}/whole.zip" --format=zip "MechWarrior (1989)" WORKING_DIRECTORY "${DIR}/c")
+execute_process(COMMAND sh -c "head -c 300 '${DIR}/whole.zip' > '${DIR}/cut.zip'")
 ask(damaged 2 "\"ok\": false, .*\"summary\": \"That download is damaged" --setup --install "${DIR}/cut.zip")
 file(WRITE "${DIR}/w/MW3/Mech3.exe" "mw3")
 execute_process(COMMAND ${CMAKE_COMMAND} -E tar cf "${DIR}/wrong.zip" --format=zip MW3 WORKING_DIRECTORY "${DIR}/w")
