@@ -59,6 +59,7 @@ original.
 [docs/release-notes-1.6.1.md](docs/release-notes-1.6.1.md)): the Mac app is
 signed and notarized, so it opens like any other app; the release's checksums
 are signed, so the launcher can take it from the mirror. Nothing in play changes.
+Pirate's Moon alone: 1.2.12.
 
 **1.6.0 (2026-11-26)** (the full notes are in
 [docs/release-notes-1.6.0.md](docs/release-notes-1.6.0.md)): the mouse wheel
@@ -423,10 +424,10 @@ downloads each game when you press its DOWNLOAD:
 This repo's [Releases](../../releases) hold Pirate's Moon alone
 (`PM-Rebuild-*`), without the launcher.
 
-**On a Mac:** from 1.6.1 the app is signed and notarized by Apple, so it
-opens like any other app. A copy of 1.6.0 or older is not signed, and macOS
-stops it the first time you open it ("Not Opened"; click **Done**, not Move
-to Trash).
+**On a Mac:** from 1.6.1 (Pirate's Moon alone from 1.2.12) the app is signed
+and notarized by Apple, so it opens like any other app. An older copy is not
+signed, and macOS stops it the first time you open it ("Not Opened"; click
+**Done**, not Move to Trash).
 
 - **macOS 15 Sequoia and later:** open **System Settings > Privacy &
   Security**, scroll down to the line about BattleTech, click **Open
