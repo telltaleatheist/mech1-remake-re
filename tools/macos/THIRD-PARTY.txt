@@ -9,7 +9,7 @@ of their authors.
 Each was built unmodified from its official release source.
 
 
-SDL 3 (libSDL3), version 3.4.12
+SDL 3 (libSDL3), version 3.4.20
 -------------------------------
 Simple DirectMedia Layer, https://www.libsdl.org/
 Copyright (C) 1997-2026 Sam Lantinga and others. zlib licence.

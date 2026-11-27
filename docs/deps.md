@@ -12,7 +12,7 @@ SDL3_ttf and SDL3_sound for mw3 and the four FFmpeg dylibs for mw3import. Linux:
 
 | Source | sha256 (pinned) | Checked against |
 |---|---|---|
-| SDL3-3.4.12.tar.gz (github.com/libsdl-org/SDL release-3.4.12) | f07b958a9ac5020fb7a44cadb957f658b2149c3c8abb4f63145fac9303249db7 | its `.sig`: good signatures by Sam Lantinga's DSA key 1528 635D 8053 A57F 77D1 E086 30A5 9377 A776 3BE6 and RSA key 0900 1043 63B4 C9D4 223D E149 D913 FE7D 4B61 D39B (both from keyserver.ubuntu.com; neither his GitHub profile nor libsdl.org lists a fingerprint) |
+| SDL3-3.4.20.tar.gz (github.com/libsdl-org/SDL release-3.4.20; 3.4.12 until 2026-11-27) | f3bb06f55bed9557227a700af2ea62e49497ebdf58037732a731a5fb3ef8581f | its `.sig`: good signatures (3.4.20 checked 2026-11-27) by Sam Lantinga's DSA key 1528 635D 8053 A57F 77D1 E086 30A5 9377 A776 3BE6 and RSA key 0900 1043 63B4 C9D4 223D E149 D913 FE7D 4B61 D39B (both from keyserver.ubuntu.com; neither his GitHub profile nor libsdl.org lists a fingerprint) |
 | SDL3_ttf-3.2.2.tar.gz (libsdl-org/SDL_ttf release-3.2.2) | 63547d58d0185c833213885b635a2c0548201cc8f301e6587c0be1a67e1e045d | its `.sig`: Sam Lantinga's DSA key above |
 | SDL3_sound-3.2.0.tar.gz (icculus/SDL_sound v3.2.0) | 3348f3ecc653e21f2b7ed8e409f07c67b179fbbfba3b99c85698e6e5d7b5924c | its `.sig`: Ryan C. Gordon's key 50F9 1FB5 50EC 32AB 4A71 0286 FA14 8B89 2AB4 8044, the one on his GitHub profile (github.com/icculus.gpg) |
 | freetype-2.14.3.tar.xz (download.savannah.gnu.org) | 36bc4f1cc413335368ee656c42afca65c5a3987e8768cc28cf11ba775e785a5f | its `.sig`: Werner Lemberg's key E306 7470 7856 409F F194 8010 BE6C 3AAC 63AD 8E3F (checked 2026-11-23; 2.13.2 before it) |
