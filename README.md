@@ -46,6 +46,14 @@ Every release's full notes are on the [Releases](../../releases) page, and
 [CHANGES.md](CHANGES.md) lists everything the rebuild changes from the
 original.
 
+**1.7.0 (2026-11-27)** (the full notes are in
+[docs/release-notes-1.7.0.md](docs/release-notes-1.7.0.md)): started on its
+own without game files, the game offers to download the original files; a
+MechWarrior 3 disc in a drive is found; the setup takes reverse-engineered.com's
+compact copy of the original files; a dropped download picks up where it
+stopped; a crash at quit after the sound output changed is fixed (SDL 3.4.20).
+Nothing in play changes.
+
 **1.6.1 (2026-11-27)** (the full notes are in
 [docs/release-notes-1.6.1.md](docs/release-notes-1.6.1.md)): the Mac app is
 signed and notarized, so it opens like any other app; the release's checksums
