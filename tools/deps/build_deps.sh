@@ -26,7 +26,7 @@ JOBS="${JOBS:-$( (sysctl -n hw.ncpu 2>/dev/null || nproc) )}"  # JOBS=4 to share
 
 # name | url | sha256
 PINS=(
-  "SDL3-3.4.12.tar.gz|https://github.com/libsdl-org/SDL/releases/download/release-3.4.12/SDL3-3.4.12.tar.gz|f07b958a9ac5020fb7a44cadb957f658b2149c3c8abb4f63145fac9303249db7"
+  "SDL3-3.4.20.tar.gz|https://github.com/libsdl-org/SDL/releases/download/release-3.4.20/SDL3-3.4.20.tar.gz|f3bb06f55bed9557227a700af2ea62e49497ebdf58037732a731a5fb3ef8581f"
   "freetype-2.14.3.tar.xz|https://download.savannah.gnu.org/releases/freetype/freetype-2.14.3.tar.xz|36bc4f1cc413335368ee656c42afca65c5a3987e8768cc28cf11ba775e785a5f"
   "SDL3_ttf-3.2.2.tar.gz|https://github.com/libsdl-org/SDL_ttf/releases/download/release-3.2.2/SDL3_ttf-3.2.2.tar.gz|63547d58d0185c833213885b635a2c0548201cc8f301e6587c0be1a67e1e045d"
   "SDL3_sound-3.2.0.tar.gz|https://github.com/icculus/SDL_sound/releases/download/v3.2.0/SDL3_sound-3.2.0.tar.gz|3348f3ecc653e21f2b7ed8e409f07c67b179fbbfba3b99c85698e6e5d7b5924c"
@@ -67,12 +67,12 @@ cmake_build() {  # source dir, then its options
 }
 
 if [ "$PLATFORM" != win ]; then
-unpack SDL3-3.4.12.tar.gz
+unpack SDL3-3.4.20.tar.gz
 # Linux: XTest only feeds synthetic input; without its headers SDL refuses
 # to configure X11 (docs/linux.md).
 SDL_EXTRA=()
 [ "$PLATFORM" = linux ] && SDL_EXTRA+=(-DSDL_X11_XTEST=OFF)
-cmake_build "$WORK/src/SDL3-3.4.12" -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TEST_LIBRARY=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF \
+cmake_build "$WORK/src/SDL3-3.4.20" -DSDL_SHARED=ON -DSDL_STATIC=OFF -DSDL_TEST_LIBRARY=OFF -DSDL_TESTS=OFF -DSDL_EXAMPLES=OFF \
   ${SDL_EXTRA[@]+"${SDL_EXTRA[@]}"}
 echo "built SDL3"
 
