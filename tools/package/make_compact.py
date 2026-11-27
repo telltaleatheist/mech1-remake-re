@@ -2,8 +2,8 @@
 """The compact original (docs/compact.md): a game's files as a disc install leaves them, made small for hosting.
 
     make_compact.py make --game mw3 --zip "MechWarrior 3 (USA).zip" --mw3 build/mw3 --mw3import build/mw3import
-                         --out mw3-compact-1.0.tar.xz [--work DIR] [--crf 24] [--by reverse-engineered.com]
-                         [--url-base https://reverse-engineered.com/launcher/originals/] [--game-min 1.7.0]
+                         --out mw3-compact-1.0.tar.xz --game-min 1.7.0 [--work DIR] [--crf 24]
+                         [--by reverse-engineered.com] [--url-base https://reverse-engineered.com/launcher/originals/]
 
 From the disc image's zip (the Internet Archive's, checked by its SHA-256 below): the game's own setup of it
 (`mw3 --setup --install`, as the launcher asks), then
@@ -351,7 +351,9 @@ def main():
     m.add_argument('--crf', type=int, default=20)
     m.add_argument('--by', default='reverse-engineered.com')
     m.add_argument('--url-base', default='https://reverse-engineered.com/launcher/originals/')
-    m.add_argument('--game-min', default='1.7.0')
+    m.add_argument('--game-min', required=True,
+                   help="the catalog entry's game_min: the game's own first release that reads compacts "
+                        "(MechWarrior 3 1.7.0, Pirate's Moon 1.3.0)")
     m.add_argument('--any-zip', action='store_true', help='take a zip that is not the Internet Archive\'s')
     c.add_argument('--compact', required=True)
     c.add_argument('--grabs', help='a folder for frame grabs, disc import left, compact import right')
