@@ -448,6 +448,10 @@ These change how the game talks to the computer, not how it plays.
   file and plays the effects on your pad's or stick's rumble motors: weapon
   recoil, laser buzz, hits, footsteps, landings, the jump jets, wading and
   your death. The stick-centring springs have no rumble version.
+  RUMBLE on the Game Options screen, under RAW MOUSE, turns it off (on to
+  start): for players on mouse and keyboard whose plugged-in pad would
+  otherwise rumble (issue #22). Off, nothing rumbles, and an effect that
+  is playing stops at once.
 
 - The game finds your MechWarrior 3 installation by itself: where its installer put it (the registry, then Program Files), or it asks you once to point at Mech3.exe, then remembers the folder in `mw3.cfg`. The original simply ran from its own folder.
 - The game installs straight from its disc, with no Windows installer: `mw3 --install-from` takes the CD drive, a disc image (.iso) or a .cue/.bin, copies the game into a folder of its own and remembers it, so Mac and Linux players need no Windows to install it. Given the 1.2 patch too (`--patch`), it is installed as 1.2 in the same step, and a .cue's CD audio becomes the music.

@@ -122,6 +122,7 @@
 #include "mech3/mp_lobby.h"
 #include "upgrades/mods/mp_mods.h"
 #include "mech3/mods.h"
+#include "upgrades/settings/rumble.h"
 #include "upgrades/settings/upgrades.h"
 #include "upgrades/mods/mod_report.h"
 #include "upgrades/mods/entry_archives.h"
@@ -20747,7 +20748,9 @@ TEST(options_mouse_sensitivity_slider_headless) {
   bool page = false, page_read = false, page_applied = false;
   bool raw_row = false, raw_read = false, raw_at_once = false, raw_back = false, page_left_raw = false;
   const bool raw_was = zfix::options().raw_mouse;
-  std::vector<std::string> saved, raw_saved;
+  bool rumble_row = false, rumble_read = false, rumble_at_once = false;
+  const bool rumble_was = upgrades::rumble::on();
+  std::vector<std::string> saved, raw_saved, rumble_saved;
   mech3::options_upgrades_saver() = [&](const char* key, bool on) { saved.push_back(std::string(key) + "=" + (on ? "1" : "0")); };
   {
     mech3::GameEngine engine(p, "mech3.exe -nofmv");
@@ -20806,6 +20809,17 @@ TEST(options_mouse_sensitivity_slider_headless) {
         g->apply(1);
         raw_at_once = zfix::options().raw_mouse == !raw_was;
         raw_saved = saved;
+        // RUMBLE (issue #22): under RAW MOUSE, read, then ACCEPT's apply the other way, at once and saved.
+        rumble_row = g->has_rumble && g->rumble.count() == 2 && g->rumble.get_x() == g->raw_mouse.get_x() &&
+                     g->rumble.get_y() == 415 && g->rumble_box.get_y() == 415;
+        g->apply(0);
+        rumble_read = g->rumble.selected_value() == (rumble_was ? 1 : 0);
+        saved.clear();
+        g->rumble.select(!rumble_was);
+        g->apply(1);
+        rumble_at_once = upgrades::rumble::on() == !rumble_was;
+        rumble_saved = saved;
+        upgrades::rumble::set(rumble_was);
         saved.clear();
         g->raw_mouse.select(raw_was);
         g->back.on_left_up();  // BACK: neither taken nor saved
@@ -20854,7 +20868,18 @@ TEST(options_mouse_sensitivity_slider_headless) {
   std::printf("  raw mouse: row %d, read %d, at once %d, left by BACK %d, kept by the page %d; saved %s\n", raw_row, raw_read, raw_at_once,
               raw_back, page_left_raw, raw_saved.empty() ? "nothing" : raw_saved[0].c_str());
   EXPECT(raw_row && raw_read && raw_at_once && raw_back && page_left_raw);
-  EXPECT(raw_saved == std::vector<std::string>({std::string(zfix::kRawMouseKey) + (raw_was ? "=0" : "=1")}));
+  EXPECT(raw_saved == std::vector<std::string>({std::string(zfix::kRawMouseKey) + (raw_was ? "=0" : "=1"),
+                                                std::string(upgrades::rumble::kKey) + (rumble_was ? "=1" : "=0")}));
+  std::printf("  rumble: row %d, read %d, at once %d; saved %zu line(s)\n", rumble_row, rumble_read, rumble_at_once,
+              rumble_saved.size());
+  EXPECT(rumble_row && rumble_read && rumble_at_once);
+  EXPECT(std::find(rumble_saved.begin(), rumble_saved.end(),
+                   std::string(upgrades::rumble::kKey) + (rumble_was ? "=0" : "=1")) != rumble_saved.end());
+  EXPECT(upgrades::rumble::on() == rumble_was);
+  // mw3.cfg's line: rumble=0 or rumble=1 only.
+  EXPECT(upgrades::rumble::of_line("rumble=0") == 0 && upgrades::rumble::of_line("rumble=1") == 1);
+  EXPECT(upgrades::rumble::of_line("rumble=2") == -1 && upgrades::rumble::of_line("rumbles=1") == -1 &&
+         upgrades::rumble::of_line("rumble=") == -1);
   // mw3.cfg's lines: the Mac reads its own key alone (an old rawmouse=1 starts it from the default, once), the
   // others rawmouse= as before.
   EXPECT(std::string(zfix::raw_mouse_key(false)) == "rawmouse" && std::string(zfix::raw_mouse_key(true)) == "rawmouse_mac");
@@ -20945,12 +20970,13 @@ TEST(options_our_records_take_the_dialogs_font) {
                 font("WIDE_MENUS").c_str(),
                 zrdr::find(r, "UPGRADES_DIALOG") != nullptr, zrdr::find(r, "MOUSE_SENSITIVITY") != nullptr);
     EXPECT(font("CONTROLS_CFG") == want && font("UPGRADES") == want && font("WIDE_MENUS") == want);
-    for (const char* k : {"WATER", "MFB_REGROUP", "IMPROVED_AI", "ARTEMIS", "SMALL_FIXES", "RAW_MOUSE"}) EXPECT(font(k) == want);
+    for (const char* k : {"WATER", "MFB_REGROUP", "IMPROVED_AI", "ARTEMIS", "SMALL_FIXES", "RAW_MOUSE", "RUMBLE"}) EXPECT(font(k) == want);
     // RAW MOUSE's one row is the game options', not the page's (2026-11-25).
     zrdr::Node* page = zrdr::find(r, "UPGRADES_DIALOG");
     zrdr::Node* game = zrdr::find(r, "GAME_OPTION_DIALOG");
     EXPECT(page && !zrdr::find(page, "RAW_MOUSE") && !zrdr::find(page, "BOX7") && zrdr::find(page, "BOX6"));
     EXPECT(game && zrdr::find(game, "RAW_MOUSE") && zrdr::find(game, "RAW_MOUSE_BOX"));
+    EXPECT(game && zrdr::find(game, "RUMBLE") && zrdr::find(game, "RUMBLE_BOX") && !zrdr::find(page, "RUMBLE"));  // issue #22
     EXPECT(zrdr::find(r, "UPGRADES_DIALOG") != nullptr && zrdr::find(r, "MOUSE_SENSITIVITY") != nullptr);
     zrdr::free_node(r);
     zrdr::close_archives(true);

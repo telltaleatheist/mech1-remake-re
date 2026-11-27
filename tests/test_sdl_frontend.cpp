@@ -82,6 +82,7 @@ int unsetenv(const char* name) { return _putenv_s(name, ""); }
 #include "frontend/sdl/launcher_own.h"
 #include "mech3/game_setup.h"
 #include "rekit/status.h"
+#include "upgrades/settings/rumble.h"
 #include "upgrades/settings/upgrades.h"
 #include "frontend/sdl/sdl_platform.h"
 #include "frontend/sdl/sdl_sound.h"
@@ -866,6 +867,62 @@ TEST(sdl_force_device_plays_the_ifr_effects_as_rumble) {
     zutl::mounts() = kept;
     in.close(platform::Input::kJoystick);
   }
+  SDL_CloseJoystick(j);
+  SDL_DetachVirtualJoystick(id);
+}
+
+// Ours (issue #22): RUMBLE off plays no effect at all, and switching it off stops one that is playing (the pad
+// told 0 at once); on again, what is still playing comes back.
+TEST(sdl_force_device_rumble_switch_off_plays_nothing) {
+  if (!std::filesystem::exists(std::string(MW3_GAME_DIR) + "/force_eff.ifr")) return;
+  EXPECT(SDL_InitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD));
+  SDL_VirtualJoystickDesc d;
+  SDL_INIT_INTERFACE(&d);
+  d.type = SDL_JOYSTICK_TYPE_GAMEPAD, d.naxes = SDL_GAMEPAD_AXIS_COUNT, d.nbuttons = SDL_GAMEPAD_BUTTON_COUNT;
+  d.name = "mw3 rumble switch pad";
+  d.Rumble = [](void*, Uint16 low, Uint16 high) {
+    ++g_rumbled.calls, g_rumbled.low = low, g_rumbled.high = high;
+    return true;
+  };
+  const SDL_JoystickID id = SDL_AttachVirtualJoystick(&d);
+  SDL_Joystick* j = SDL_OpenJoystick(id);
+  const bool was = upgrades::rumble::on();
+  {
+    sdlfe::SdlInput in;
+    EXPECT(in.open(platform::Input::kJoystick));
+    const zutl::Mounts kept = zutl::mounts();
+    zutl::mounts() = zutl::Mounts{};
+    zutl::mount(MW3_GAME_DIR);
+    sdlfe::SdlForceDevice dev([&in] { return in.joystick(); });
+    dev.now_ms = [] { return g_ms; };
+    EXPECT(dev.load("force_eff.ifr"));
+    upgrades::rumble::set(true);
+    upgrades::rumble::changed() = [&dev] { dev.refresh(); };
+    const auto jets = dev.create("jets1"), recoil = dev.create("Recoil");
+    EXPECT(jets.size() == 1 && recoil.size() == 1);
+    g_rumbled = {};
+    dev.start(jets[0]);  // infinite: on until stopped
+    const uint16_t jets_high = dev.last().high;
+    EXPECT(jets_high > 0 && g_rumbled.high == jets_high);
+    upgrades::rumble::set(false);  // the options' ACCEPT with RUMBLE off: stopped at once
+    sdlfe::SdlForceDevice::Rumble r = dev.last();
+    std::printf("  off: low %u high %u ms %u, the pad told %u %u\n", r.low, r.high, r.ms, g_rumbled.low, g_rumbled.high);
+    EXPECT(r.low == 0 && r.high == 0 && r.ms == 0 && g_rumbled.low == 0 && g_rumbled.high == 0);
+    dev.set_gain(recoil[0], 10000);
+    dev.start(recoil[0]);  // a new effect while off: nothing
+    EXPECT(dev.last().low == 0 && dev.last().high == 0 && g_rumbled.low == 0 && g_rumbled.high == 0);
+    g_ms += 1000;  // the recoil over; the jets still on
+    upgrades::rumble::set(true);  // on again: the jets come back, the recoil does not
+    r = dev.last();
+    std::printf("  on again: low %u high %u ms %u\n", r.low, r.high, r.ms);
+    EXPECT(r.high == jets_high && r.low == 0 && r.ms == 0xffffffffu && g_rumbled.high == jets_high);
+    dev.stop(jets[0]);
+    EXPECT(dev.last().high == 0 && dev.last().low == 0);
+    upgrades::rumble::changed() = nullptr;
+    zutl::mounts() = kept;
+    in.close(platform::Input::kJoystick);
+  }
+  upgrades::rumble::set(was);
   SDL_CloseJoystick(j);
   SDL_DetachVirtualJoystick(id);
 }

@@ -80,6 +80,7 @@
 #include "upgrades/mods/entry_run.h"
 #include "upgrades/mods/ia_mods_menu.h"
 #include "upgrades/mods/save_mods.h"
+#include "upgrades/settings/rumble.h"
 #include "upgrades/valve_map/valve_map.h"
 #include "frontend/sdl/sdl_child.h"
 #include "frontend/sdl/sdl_focus.h"
@@ -193,6 +194,7 @@ struct Args {
   std::string cfg_joystick, cfg_joystick_axes;  // mw3.cfg's joystick=, joystick_axes= (ours, W54: sdl_input.h)
   int raw_mouse = -1, cfg_raw_mouse = -1;   // --raw-mouse / --no-raw-mouse, mw3.cfg's rawmouse= (rawmouse_mac= on the Mac; ours, issue #15)
   int wide_menus = -1, cfg_wide_menus = -1;  // --wide-menus / --no-wide-menus, mw3.cfg's widemenus= (ours)
+  int cfg_rumble = -1;  // mw3.cfg's rumble= (ours, issue #22: upgrades/settings/rumble.h)
   bool debug_camera = false;  // --debug-camera (ours, docs/editor.md S4): the game editor anywhere; developers only
   std::vector<std::string> assets;
   // Mods (ours, docs/modding.md): --mod NAME (repeatable, this run's list),
@@ -544,6 +546,7 @@ void read_config(const std::string& dir, Args& a) {
     else if (line == "widemenus=0") a.cfg_wide_menus = 0;
     else if (line == "widemenus=1") a.cfg_wide_menus = 1;
     else if (zfix::raw_mouse_of_line(line) >= 0) a.cfg_raw_mouse = zfix::raw_mouse_of_line(line);  // the Mac's own key
+    else if (upgrades::rumble::of_line(line) >= 0) a.cfg_rumble = upgrades::rumble::of_line(line);
     else if (line == "throttle_reverse=0") a.cfg_throttle_reverse = 0;
     else if (line == "throttle_reverse=1") a.cfg_throttle_reverse = 1;
   }
@@ -1064,6 +1067,7 @@ int program(int argc, char** argv) {
   zfix::options().raw_mouse = a.raw_mouse >= 0 ? a.raw_mouse != 0
                              : a.cfg_raw_mouse >= 0 ? a.cfg_raw_mouse != 0
                                                     : zfix::kRawMouseDefault;  // the same (issue #15)
+  upgrades::rumble::set(a.cfg_rumble >= 0 ? a.cfg_rumble != 0 : upgrades::rumble::kDefault);  // RUMBLE (issue #22), kept by --original
   zfix::options().throttle_reverse = a.cfg_throttle_reverse != 0;  // with fixed (lever_reverse_on)
   // The options' UPGRADES page saves its switches here, beside the rest of mw3.cfg, and the game options RAW MOUSE (ours).
   // --original's five stay off for the run only: nothing of them saved.
@@ -1297,6 +1301,11 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
   sdlfe::SdlInput input;
   input.joystick_want = a.cfg_joystick, input.joystick_axes = a.cfg_joystick_axes;
   sdlfe::SdlForceDevice force([&input] { return input.joystick(); });  // FIX (A): IFORCE2 as rumble (sdl_force.h)
+  // Ours (issue #22): RUMBLE switched on the game options plays again what is playing, or stops it.
+  upgrades::rumble::changed() = [&force] { force.refresh(); };
+  struct RumbleUnhook {
+    ~RumbleUnhook() { upgrades::rumble::changed() = nullptr; }
+  } rumble_unhook;
   input.window = window.sdl();
   int focus_at = 0, focus_passes = 0;  // MW3_FOCUS_AT (checks)
   input.shape = &window.shape();       // any_resolution: the frame's rect, not 640 (sdl_fit.h)

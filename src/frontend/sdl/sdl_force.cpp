@@ -7,6 +7,7 @@
 
 #include "gamez/zutil/zutl_path.h"
 #include "mech3/patch12.h"
+#include "upgrades/settings/rumble.h"
 
 namespace sdlfe {
 
@@ -128,6 +129,7 @@ void SdlForceDevice::apply() {
   }
   r.ms = until == UINT64_MAX ? 0xffffffffu : static_cast<uint32_t>(std::min<uint64_t>(until - now, 0xffffffffu));
   if (!r.low && !r.high) r.ms = 0;
+  if (!upgrades::rumble::on()) r = {};  // ours: RUMBLE off (issue #22, upgrades/settings/rumble.h): nothing, a playing one stopped
   last_ = r;
   if (SDL_Joystick* j = joystick_ ? joystick_() : nullptr) SDL_RumbleJoystick(j, r.low, r.high, r.ms);
 }

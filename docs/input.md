@@ -378,6 +378,19 @@ DIDC_FORCEFEEDBACK when SDL says the device rumbles. Tests:
   a recording device; in c1m1 the object made, the Spring, the water and
   the steps. Break: the calls unwired, none.
 
+Ours (issue #22, 2026-11-27): RUMBLE, an ON/OFF row on the game options
+under RAW MOUSE (`upgrades/settings/rumble.h`, mw3.cfg `rumble=0/1`, on by
+default). The original had force feedback for sticks only and no switch;
+playing it on any pad's rumble meant a pad left plugged in rumbled for a
+player on mouse and keyboard. Off, `SdlForceDevice` sets the rumble to
+nothing whatever is playing, and the switch re-applies at once
+(`refresh()`), so an infinite effect (the jets) stops on ACCEPT; on again,
+what is still playing comes back. Tests:
+`sdl_force_device_rumble_switch_off_plays_nothing` (a virtual pad told 0
+at once, a new effect while off plays nothing, the jets back after) and
+`options_mouse_sensitivity_slider_headless` (the row at 415 under RAW
+MOUSE, read, applied at once, saved).
+
 ## 8. The mouse in a window (2026-10-30)
 
 After trying Alt+Enter: in a window the mouse could not leave it (to
