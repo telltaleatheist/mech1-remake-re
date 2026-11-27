@@ -3961,8 +3961,8 @@ void Launcher::activate(int id) {
         screen_ = kMain, layout();
       }
       break;
-    case kFind: search(); break;
-    case kGetOriginal: get_original(); break;  // the usual places and the drives first, then the one picker
+    case kFind: search(); break;  // the usual places and the drives first, then the one picker
+    case kGetOriginal: get_original(); break;  // DOWNLOAD THE GAME FILES: the catalog's sources, then installed as a pick
     case kPickFile:
     case kCopyPick:
       status_ = "Pick the copy to use: " + (kit_files_ >= 0 ? kit_ask_.pick_words : std::string("a disc image, a download, or Mech3.exe")) + ".";
