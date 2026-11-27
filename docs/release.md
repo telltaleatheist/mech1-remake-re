@@ -238,9 +238,10 @@ Moon.app".
 - [ ] No version ends in `-dirty`, and the combined package's file names carry
       main's version, PM alone's pm's.
 - [ ] Every platform's files gathered in one folder and
-      `python3 -I tools/package/sums.py <folder>` run over all of them: that
-      SHA256SUMS goes up with the release (**required**: the updater installs
-      nothing without its line).
+      `MW3_SIGNING_KEY=<key file> python3 -I tools/package/sums.py <folder>`
+      run over all of them: that SHA256SUMS and its SHA256SUMS.sig go up
+      with the release (SHA256SUMS **required**: the updater installs nothing
+      without its line; the .sig lets a launcher take it from the mirror).
 
 ### Checking
 
@@ -278,9 +279,11 @@ notes, the README) is checked before it goes up.
 - [ ] **No legal name.** Search each package's text and binaries (LICENSE,
       the README, `THIRD-PARTY.txt`, the installer, the Info.plist, the
       release notes) for the author's legal name and email addresses (`strings -a`, `grep -ri`); there must
-      be no match.
-- [x] **No team ID or signing identity.** The Mac app is signed ad hoc
-      (above); the Windows files carry no certificate.
+      be no match outside the Mac code signature (next item).
+- [x] **The signing identity only in the signature** (2026-11-26). The Mac packages are Developer ID signed
+      (macos.md, Signing): the legal name and team ID appear only in the Developer ID signature of the Mac
+      packages; nowhere else, never in the repo's text, docs, commits or READMEs. The Windows files carry no
+      certificate.
 - [x] **No local paths.** No machine's folders in the binaries or the text:
       `strings -a <each binary> | grep -E '/Users/|/Volumes/|/home/|C:\\Users\\|E:\\'`
       must print nothing. (`MW3_PACKAGE=ON` keeps the game folder out; the
@@ -354,7 +357,8 @@ why of each):
 4. Built on all three platforms from the tags: the Mac here, Windows on the
    PC (a git bundle of the tags), Linux in WSL after Windows.
 5. Every file in one folder, checked against its platform's sums, then
-   `python3 -I tools/package/sums.py <folder>`.
+   `MW3_SIGNING_KEY=<key file> python3 -I tools/package/sums.py <folder>`
+   (SHA256SUMS and SHA256SUMS.sig).
 6. Tags pushed; the hub's release published first, then each game's own.
 7. Every asset downloaded again and checked; the previous launcher's update
    check finds the new release; the download page shows it.

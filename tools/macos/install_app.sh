@@ -57,7 +57,8 @@ if [ ${#missing[@]} -gt 0 ]; then
   done
 fi
 
-tools/macos/make_app.sh
+# A build of one's own: not notarized (no Developer ID here), its README's first-open paragraph says so.
+RE_ALLOW_UNSIGNED=1 tools/macos/make_app.sh
 BUILT="build-mac/dist/MechWarrior 3.app"
 
 # The player's own icon.

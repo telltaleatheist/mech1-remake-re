@@ -24,7 +24,7 @@ asks it. Plus the mouse wheel in the menus' lists.
   movies are now done by MechWarrior 3's and Pirate's Moon's own programs,
   as MechWarrior 1 Rebuild, the Remake and Inception already did; the
   launcher shows their screens as before. The launcher itself holds no game
-  code any more, and its download is less than half the size.
+  code any more, and its download is about 40% smaller.
 - **PLAY and a start on its own open the same copy.** MechWarrior 3 started
   without the launcher now picks the copy the launcher shows for it: the
   game's own folder first, then the one in mw3.cfg, the settings folder's,

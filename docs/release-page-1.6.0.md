@@ -16,7 +16,7 @@ This is the launcher (named BattleTech). It installs MechWarrior 3, Pirate's Moo
 ## What's new
 
 - **The mouse wheel scrolls the menus' lists** (issue #20): the Mech Lab's, the pilots, the saved games and the lobby's lists, and the commands on the controls screen. Under SMALL FIXES.
-- **Each game sets itself up.** MechWarrior 3 and Pirate's Moon now find, install and complete their own files, as the other games already did; the launcher shows their screens as before, holds no game code any more, and is less than half the size to download.
+- **Each game sets itself up.** MechWarrior 3 and Pirate's Moon now find, install and complete their own files, as the other games already did; the launcher shows their screens as before, holds no game code any more, and is about 40% smaller to download.
 - **The launcher has its own menu sounds,** and new games can appear in it without a launcher update.
 - **PLAY and a start on its own open the same copy** of MechWarrior 3 when you have more than one.
 
