@@ -397,7 +397,7 @@ takes its `BTECH.EXE`, its folder or the `.zip` it came in.
 ## Download
 
 The launcher is on the [mw3-re Releases](https://github.com/telltaleatheist/mw3-re/releases)
-page (and [owenmorgan.com/battletech](https://owenmorgan.com/battletech/)); it
+page (and [reverse-engineered.com](https://reverse-engineered.com)); it
 downloads each game when you press its DOWNLOAD:
 
 | | File | |
