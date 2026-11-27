@@ -46,8 +46,9 @@ check a file.
 | Mac | `MW1-Remake-<version>-mac.dmg` | Open it and drag the app to Applications. |
 | Linux | `MW1-Remake-<version>-x86_64.AppImage` | Make it executable (`chmod +x`) and run it. |
 
-- **Mac, the first time:** the app is not signed by Apple, so macOS stops it
-  once. On macOS 15 and later click **Done**, then open **System Settings >
+- **Mac:** from 1.1.4 the app is signed and notarized by Apple, so it opens
+  like any other app. An older copy is not signed, and macOS stops it once:
+  on macOS 15 and later click **Done**, then open **System Settings >
   Privacy & Security** and click **Open Anyway**. On macOS 12 to 14,
   right-click the app, choose **Open**, then **Open** again.
 - **Windows:** SmartScreen may warn about an unknown publisher. Click **More
@@ -70,6 +71,18 @@ it.
 
 `mw1 --version` prints the version. Version numbers: the second number is a
 feature update, the third is bug fixes.
+
+## What's new in 1.1.4
+
+On a Mac the Remake is signed and notarized, so it opens like any other app, and the release's checksums are signed so
+the launcher can take it from the mirror. Nothing in play changes. The full notes:
+[mw1/dist/RELEASE-NOTES-1.1.4.md](mw1/dist/RELEASE-NOTES-1.1.4.md).
+
+## What's new in 1.1.3
+
+The menus stay 4:3 on a screen narrower than 16:9 with WIDE MENUS on (issue #1), the Remake no longer can crash as it
+closes, and it finds and copies your MechWarrior (1989) itself. The full notes:
+[mw1/dist/RELEASE-NOTES-1.1.3.md](mw1/dist/RELEASE-NOTES-1.1.3.md).
 
 ## What's new in 1.1.2
 
