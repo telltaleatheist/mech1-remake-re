@@ -11,6 +11,14 @@
 //
 //   mw3import [--install DIR] [--write-dir DIR] [--only NAME] [--missing]
 //             [--cue DISC.cue [--music-only]] [--shapes]
+//   mw3import --frames-out FILE.y4m --only NAME [--install DIR]
+//
+// A compact original's movie (2026-11-27, docs/compact.md) is a video\ folder's
+// <name>.webm (VP9), <name>.flac (the sound) and <name>.fmvh (the .fmv this
+// importer wrote from the disc's AVI): the same three files come out, the
+// .wav's bytes the AVI's, the .fmv the kept one. --frames-out: one AVI's
+// pictures as the .m1v takes them (each source frame once, exactly dwLength,
+// at its own rate), for make_compact.py's encoder.
 //
 // --missing: only the movies without a .fmv yet (mw3's first run asks for
 // these, following the "progress K N" lines). --cue: the disc image's CD
@@ -21,11 +29,14 @@
 // Needs FFmpeg's libavformat, libavcodec, libswscale and libavutil (Indeo 5
 // decoding and the MPEG-1 encoder); built only when they are found.
 #include <algorithm>
+#include <cctype>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <functional>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -196,38 +207,30 @@ void write_wav(const std::string& path, const Avi& a) {
   std::fclose(f);
 }
 
-// The picture: each source frame (the last the decoder gave, for packets it
-// gives none for) encoded twice at 30 fps.
-bool write_m1v(const std::string& avi, const std::string& out_path, uint32_t frames, std::string* err) {
+// The source's pictures, `frames` of them, each given to `take` as YUV 4:2:0
+// (the last picture the decoder gave, for packets it gives none for; black
+// before the first; a short stream holds its last). The AVI's Indeo 5, or a
+// compact original's VP9 decoded without frame threads, which would hold
+// pictures back and so repeat the one before.
+using TakeFrame = std::function<bool(AVFrame* cur)>;
+bool each_frame(const std::string& src, uint32_t frames, const std::function<bool(int w, int h)>& start,
+                const TakeFrame& take, std::string* err) {
   AVFormatContext* in = nullptr;
-  if (avformat_open_input(&in, avi.c_str(), nullptr, nullptr) < 0) return *err = "cannot open", false;
+  if (avformat_open_input(&in, src.c_str(), nullptr, nullptr) < 0) return *err = "cannot open", false;
   avformat_find_stream_info(in, nullptr);
   const int vs = av_find_best_stream(in, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
   if (vs < 0) return avformat_close_input(&in), *err = "no video", false;
   const AVCodec* dec = avcodec_find_decoder(in->streams[vs]->codecpar->codec_id);
   AVCodecContext* dc = dec ? avcodec_alloc_context3(dec) : nullptr;
-  if (!dc || avcodec_parameters_to_context(dc, in->streams[vs]->codecpar) < 0 || avcodec_open2(dc, dec, nullptr) < 0)
-    return avformat_close_input(&in), *err = "no Indeo 5 decoder", false;
+  if (dc) dc->thread_type = FF_THREAD_SLICE;
+  if (!dc || avcodec_parameters_to_context(dc, in->streams[vs]->codecpar) < 0 || avcodec_open2(dc, dec, nullptr) < 0) {
+    *err = std::string("no decoder for its video (") + avcodec_get_name(in->streams[vs]->codecpar->codec_id) + ")";
+    avcodec_free_context(&dc);
+    avformat_close_input(&in);
+    return false;
+  }
   const int w = dc->width, h = dc->height;
-
-  const AVCodec* enc = avcodec_find_encoder(AV_CODEC_ID_MPEG1VIDEO);
-  AVCodecContext* ec = avcodec_alloc_context3(enc);
-  ec->width = w, ec->height = h, ec->pix_fmt = AV_PIX_FMT_YUV420P;
-  ec->time_base = AVRational{1, 30}, ec->framerate = AVRational{30, 1};
-  ec->gop_size = 30, ec->max_b_frames = 0;
-  ec->flags |= AV_CODEC_FLAG_QSCALE;
-  ec->global_quality = FF_QP2LAMBDA * 2;
-  AVFormatContext* out = nullptr;
-  avformat_alloc_output_context2(&out, nullptr, "mpeg1video", out_path.c_str());
-  if (!out) return *err = "no MPEG-1 video muxer", false;
-  if (out->oformat->flags & AVFMT_GLOBALHEADER) ec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
-  if (avcodec_open2(ec, enc, nullptr) < 0) return *err = "no MPEG-1 encoder", false;
-  AVStream* os = avformat_new_stream(out, nullptr);
-  avcodec_parameters_from_context(os->codecpar, ec);
-  os->time_base = ec->time_base;
-  if (avio_open(&out->pb, out_path.c_str(), AVIO_FLAG_WRITE) < 0) return *err = "cannot write", false;
-  if (avformat_write_header(out, nullptr) < 0) return *err = "header", false;
-
+  if (!start(w, h)) return avcodec_free_context(&dc), avformat_close_input(&in), *err = "cannot write", false;
   AVFrame* got = av_frame_alloc();
   AVFrame* cur = av_frame_alloc();
   cur->format = AV_PIX_FMT_YUV420P, cur->width = w, cur->height = h;
@@ -238,27 +241,9 @@ bool write_m1v(const std::string& avi, const std::string& out_path, uint32_t fra
     for (int y = 0; y < h / 2; ++y) std::memset(cur->data[p] + y * cur->linesize[p], 128, static_cast<size_t>(w / 2));
   SwsContext* sws = nullptr;
   AVPacket* pkt = av_packet_alloc();
-  AVPacket* opkt = av_packet_alloc();
-  int64_t pts = 0;
-  auto drain = [&](bool flush) {
-    if (flush) avcodec_send_frame(ec, nullptr);
-    while (avcodec_receive_packet(ec, opkt) == 0) {
-      av_packet_rescale_ts(opkt, ec->time_base, os->time_base);
-      opkt->stream_index = os->index;
-      av_interleaved_write_frame(out, opkt);
-    }
-  };
-  auto emit = [&]() {
-    for (int i = 0; i < 2; ++i) {
-      av_frame_make_writable(cur);
-      cur->pts = pts++;
-      cur->quality = ec->global_quality;
-      avcodec_send_frame(ec, cur);
-      drain(false);
-    }
-  };
+  bool ok = true;
   uint32_t done = 0;
-  while (done < frames && av_read_frame(in, pkt) >= 0) {
+  while (ok && done < frames && av_read_frame(in, pkt) >= 0) {
     if (pkt->stream_index != vs) {
       av_packet_unref(pkt);
       continue;
@@ -272,23 +257,180 @@ bool write_m1v(const std::string& avi, const std::string& out_path, uint32_t fra
       sws_scale(sws, got->data, got->linesize, 0, got->height, cur->data, cur->linesize);
       av_frame_unref(got);
     }
-    emit();
+    ok = take(cur);
     ++done;
   }
-  while (done < frames) emit(), ++done;  // a short stream holds its last picture
-  drain(true);
-  av_write_trailer(out);
-  avio_closep(&out->pb);
+  while (ok && done < frames) ok = take(cur), ++done;  // a short stream holds its last picture
   sws_freeContext(sws);
   av_packet_free(&pkt);
-  av_packet_free(&opkt);
   av_frame_free(&got);
   av_frame_free(&cur);
   avcodec_free_context(&dc);
+  avformat_close_input(&in);
+  if (!ok) *err = "cannot write";
+  return ok;
+}
+
+// The pictures as YUV4MPEG2, once each at the stream's own rate (`rate`/`scale`): the encoder's input.
+bool write_y4m(const std::string& src, const std::string& out_path, uint32_t frames, uint32_t rate, uint32_t scale,
+               std::string* err) {
+  std::FILE* f = nullptr;
+  int w = 0, h = 0;
+  const bool ok = each_frame(src, frames, [&](int fw, int fh) {
+    w = fw, h = fh;
+    f = std::fopen(out_path.c_str(), "wb");
+    return f && std::fprintf(f, "YUV4MPEG2 W%d H%d F%u:%u Ip A1:1 C420jpeg XCOLORRANGE=LIMITED\n", w, h, rate, scale) > 0;
+  }, [&](AVFrame* cur) {
+    if (std::fputs("FRAME\n", f) < 0) return false;
+    for (int p = 0; p < 3; ++p) {
+      const int pw = p ? w / 2 : w, ph = p ? h / 2 : h;
+      for (int y = 0; y < ph; ++y)
+        if (std::fwrite(cur->data[p] + y * cur->linesize[p], 1, static_cast<size_t>(pw), f) != static_cast<size_t>(pw)) return false;
+    }
+    return true;
+  }, err);
+  if (f && std::fclose(f) != 0) return *err = "cannot write", false;
+  return ok;
+}
+
+// The picture: each source frame encoded twice at 30 fps.
+bool write_m1v(const std::string& src, const std::string& out_path, uint32_t frames, std::string* err) {
+  AVFormatContext* out = nullptr;
+  AVCodecContext* ec = nullptr;
+  AVStream* os = nullptr;
+  AVPacket* opkt = av_packet_alloc();
+  int64_t pts = 0;
+  auto drain = [&](bool flush) {
+    if (flush) avcodec_send_frame(ec, nullptr);
+    while (avcodec_receive_packet(ec, opkt) == 0) {
+      av_packet_rescale_ts(opkt, ec->time_base, os->time_base);
+      opkt->stream_index = os->index;
+      av_interleaved_write_frame(out, opkt);
+    }
+  };
+  std::string why;
+  const bool ok = each_frame(src, frames, [&](int w, int h) {
+    const AVCodec* enc = avcodec_find_encoder(AV_CODEC_ID_MPEG1VIDEO);
+    ec = enc ? avcodec_alloc_context3(enc) : nullptr;
+    if (!ec) return why = "no MPEG-1 encoder", false;
+    ec->width = w, ec->height = h, ec->pix_fmt = AV_PIX_FMT_YUV420P;
+    ec->time_base = AVRational{1, 30}, ec->framerate = AVRational{30, 1};
+    ec->gop_size = 30, ec->max_b_frames = 0;
+    ec->flags |= AV_CODEC_FLAG_QSCALE;
+    ec->global_quality = FF_QP2LAMBDA * 2;
+    avformat_alloc_output_context2(&out, nullptr, "mpeg1video", out_path.c_str());
+    if (!out) return why = "no MPEG-1 video muxer", false;
+    if (out->oformat->flags & AVFMT_GLOBALHEADER) ec->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+    if (avcodec_open2(ec, enc, nullptr) < 0) return why = "no MPEG-1 encoder", false;
+    os = avformat_new_stream(out, nullptr);
+    avcodec_parameters_from_context(os->codecpar, ec);
+    os->time_base = ec->time_base;
+    if (avio_open(&out->pb, out_path.c_str(), AVIO_FLAG_WRITE) < 0) return why = "cannot write", false;
+    if (avformat_write_header(out, nullptr) < 0) return why = "header", false;
+    return true;
+  }, [&](AVFrame* cur) {
+    for (int i = 0; i < 2; ++i) {
+      av_frame_make_writable(cur);
+      cur->pts = pts++;
+      cur->quality = ec->global_quality;
+      avcodec_send_frame(ec, cur);
+      drain(false);
+    }
+    return true;
+  }, err);
+  if (ok) {
+    drain(true);
+    av_write_trailer(out);
+  }
+  if (out) avio_closep(&out->pb);
+  av_packet_free(&opkt);
   avcodec_free_context(&ec);
   avformat_free_context(out);
-  avformat_close_input(&in);
+  if (!why.empty()) *err = why;
+  return ok;
+}
+
+// A compact original's movie (docs/compact.md): its kept .fmv (<name>.fmvh) read back into the headers the .wav
+// takes, its sound decoded from the FLAC to the AVI's own PCM (8-bit unsigned or 16-bit, whole samples).
+std::vector<uint8_t> hex_bytes(const std::string& s) {
+  std::vector<uint8_t> out;
+  for (size_t at = 0; at + 1 < s.size(); ++at)
+    if (std::isxdigit(static_cast<unsigned char>(s[at])) && std::isxdigit(static_cast<unsigned char>(s[at + 1])))
+      out.push_back(static_cast<uint8_t>(std::stoi(s.substr(at, 2), nullptr, 16))), ++at;
+  return out;
+}
+
+bool read_kept_header(const std::string& path, Avi* a, std::string* err) {
+  std::ifstream f(path, std::ios::binary);
+  if (!f) return *err = "no " + fs::path(path).filename().string(), false;
+  std::string line;
+  bool fmv = false;
+  while (std::getline(f, line)) {
+    std::istringstream in(line);
+    std::string tag;
+    in >> tag;
+    if (tag == "fmv") fmv = true;
+    else if (tag == "avih") in >> a->us_per_frame >> a->frames >> a->suggested >> a->width >> a->height;
+    else if (tag == "video" || tag == "audio") {
+      StreamHeader& s = tag == "video" ? a->video : a->audio;
+      in >> s.type >> s.handler >> s.flags >> s.priority >> s.language >> s.initial >> s.scale >> s.rate >> s.start >> s.length;
+      if (tag == "audio") a->has_audio = true;
+    } else if (tag == "videof" || tag == "audiof") {
+      (tag == "videof" ? a->video : a->audio).format = hex_bytes(line.substr(6));
+    }
+  }
+  if (!fmv || a->video.length == 0) return *err = fs::path(path).filename().string() + " is not a movie's header", false;
   return true;
+}
+
+bool read_flac_sound(const std::string& path, const Avi& a, std::vector<uint8_t>* out, std::string* err) {
+  const uint16_t bits = u16(a.audio.format, 14);
+  if (u16(a.audio.format, 0) != 1 || (bits != 8 && bits != 16)) return *err = "its sound is not 8- or 16-bit PCM", false;
+  AVFormatContext* in = nullptr;
+  if (avformat_open_input(&in, path.c_str(), nullptr, nullptr) < 0) return *err = "cannot open its sound", false;
+  avformat_find_stream_info(in, nullptr);
+  const int as = av_find_best_stream(in, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
+  const AVCodec* dec = as >= 0 ? avcodec_find_decoder(in->streams[as]->codecpar->codec_id) : nullptr;
+  AVCodecContext* dc = dec ? avcodec_alloc_context3(dec) : nullptr;
+  if (!dc || avcodec_parameters_to_context(dc, in->streams[as]->codecpar) < 0 || avcodec_open2(dc, dec, nullptr) < 0) {
+    avcodec_free_context(&dc);
+    avformat_close_input(&in);
+    return *err = "no FLAC decoder", false;
+  }
+  AVPacket* pkt = av_packet_alloc();
+  AVFrame* fr = av_frame_alloc();
+  bool ok = true;
+  auto take = [&] {
+    while (ok && avcodec_receive_frame(dc, fr) == 0) {
+      const int ch = fr->ch_layout.nb_channels;
+      const size_t n = static_cast<size_t>(fr->nb_samples) * static_cast<size_t>(ch);
+      for (size_t i = 0; i < n; ++i) {
+        // Interleaved 16- or 32-bit, or planar (a channel a plane).
+        const bool planar = av_sample_fmt_is_planar(static_cast<AVSampleFormat>(fr->format));
+        const size_t c = planar ? i % static_cast<size_t>(ch) : 0, k = planar ? i / static_cast<size_t>(ch) : i;
+        const uint8_t* plane = fr->extended_data[c];
+        int32_t v;
+        switch (av_get_packed_sample_fmt(static_cast<AVSampleFormat>(fr->format))) {
+          case AV_SAMPLE_FMT_S16: v = reinterpret_cast<const int16_t*>(plane)[k]; break;
+          case AV_SAMPLE_FMT_S32: v = reinterpret_cast<const int32_t*>(plane)[k] >> 16; break;
+          default: ok = false, *err = "its sound decodes to an unexpected format"; v = 0;
+        }
+        if (bits == 8) out->push_back(static_cast<uint8_t>((v >> 8) + 128));  // the CLI's u8 -> s16 is (u - 128) << 8
+        else out->push_back(static_cast<uint8_t>(v)), out->push_back(static_cast<uint8_t>(v >> 8));
+      }
+      av_frame_unref(fr);
+    }
+  };
+  while (ok && av_read_frame(in, pkt) >= 0) {
+    if (pkt->stream_index == as) avcodec_send_packet(dc, pkt), take();
+    av_packet_unref(pkt);
+  }
+  if (ok) avcodec_send_packet(dc, nullptr), take();
+  av_frame_free(&fr);
+  av_packet_free(&pkt);
+  avcodec_free_context(&dc);
+  avformat_close_input(&in);
+  return ok;
 }
 
 }  // namespace
@@ -303,6 +445,7 @@ int main(int argc, char** argv) {
 #define MW3_VERSION "unknown"
 #endif
   bool missing = false, music_only = false, shapes = false;
+  std::string frames_out;
   for (int i = 1; i < argc; ++i) {
     const std::string s = argv[i];
     if (s == "--version") {  // the build and the FFmpeg it runs on (its configuration: the libraries in it)
@@ -317,15 +460,19 @@ int main(int argc, char** argv) {
     else if (s == "--missing") missing = true;
     else if (s == "--music-only") music_only = true;
     else if (s == "--shapes") shapes = true;
+    else if (s == "--frames-out" && i + 1 < argc) frames_out = argv[++i];
     else {
       std::fprintf(stderr,
                    "usage: mw3import [--install DIR] [--write-dir DIR] [--only NAME] [--missing]\n"
-                   "                 [--cue DISC.cue [--music-only]] [--shapes] [--version]\n");
+                   "                 [--cue DISC.cue [--music-only]] [--shapes] [--version]\n"
+                   "       mw3import --frames-out FILE.y4m --only NAME [--install DIR]\n");
       return 2;
     }
   }
-  if (write_dir.empty() && !sdlfe::data_folder_at_start(&write_dir, false)) return 1;
-  if (write_dir.empty()) return std::fprintf(stderr, "mw3import: no write dir\n"), 1;
+  if (!frames_out.empty() && (only.empty() || install.empty()))
+    return std::fprintf(stderr, "mw3import: --frames-out takes --only NAME and an install (--install DIR)\n"), 2;
+  if (frames_out.empty() && write_dir.empty() && !sdlfe::data_folder_at_start(&write_dir, false)) return 1;
+  if (frames_out.empty() && write_dir.empty()) return std::fprintf(stderr, "mw3import: no write dir\n"), 1;
   std::setvbuf(stdout, nullptr, _IONBF, 0);  // mw3 follows the progress lines as they come
   int failed = 0;
   // The disc's CD audio as music\trackNN.wav (docs/fmv.md, Music).
@@ -350,6 +497,7 @@ int main(int argc, char** argv) {
     return std::fprintf(stderr, "mw3import: no install: give --install DIR, or start mw3 once so it finds it\n"), 1;
   const fs::path dst = fs::path(write_dir) / "video";
   std::error_code ec;
+  av_log_set_level(AV_LOG_ERROR);
   // Every folder named video in any case (an install's VIDEO beside the converted movies' video on a
   // case-sensitive disk; launcher's video_dirs the same), the sources found before dst is made.
   std::vector<fs::path> srcs;
@@ -359,22 +507,40 @@ int main(int argc, char** argv) {
     if (n == "video" && it->is_directory(ec)) srcs.push_back(it->path());
   }
   std::sort(srcs.begin(), srcs.end());
+  auto lower = [](std::string s) {
+    for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return s;
+  };
+  if (!frames_out.empty()) {  // one AVI's pictures for the compact original's encoder (make_compact.py)
+    for (const fs::path& src : srcs)
+      for (const auto& e : fs::directory_iterator(src, ec))
+        if (lower(e.path().extension().string()) == ".avi" && lower(e.path().stem().string()) == lower(only)) {
+          Avi a;
+          std::string err;
+          if (!parse_avi(e.path().string(), &a, &err) ||
+              !write_y4m(e.path().string(), frames_out, a.video.length, a.video.rate, a.video.scale ? a.video.scale : 1, &err))
+            return std::fprintf(stderr, "mw3import: %s: %s\n", e.path().string().c_str(), err.c_str()), 1;
+          std::printf("mw3import: %s: %u frames at %u/%u into %s\n", only.c_str(), a.video.length, a.video.rate, a.video.scale,
+                      frames_out.c_str());
+          return 0;
+        }
+    return std::fprintf(stderr, "mw3import: no video\\%s.AVI in %s\n", only.c_str(), install.c_str()), 1;
+  }
   fs::create_directories(dst, ec);
-  av_log_set_level(AV_LOG_ERROR);
-  // The movies to make: every video\*.AVI (lower-cased, once), or with --missing
-  // the ones without a .fmv yet.
+  // The movies to make: every video\*.AVI, or a compact original's <name>.webm (lower-cased, once; an AVI first),
+  // or with --missing the ones without a .fmv yet.
   std::vector<std::pair<fs::path, std::string>> todo;
   for (const fs::path& src : srcs)
     for (const auto& e : fs::directory_iterator(src, ec)) {
-      std::string ext = e.path().extension().string();
-      for (char& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
-      if (ext != ".avi") continue;
+      const std::string ext = lower(e.path().extension().string());
+      if (ext != ".avi" && ext != ".webm") continue;
       std::string name = e.path().stem().string();
       for (char& c : name) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
       if (!only.empty() && name != only) continue;
       if (missing && fs::exists(dst / (name + ".fmv"), ec)) continue;
-      if (std::any_of(todo.begin(), todo.end(), [&](const auto& t) { return t.second == name; })) continue;
-      todo.emplace_back(e.path(), name);
+      const auto had = std::find_if(todo.begin(), todo.end(), [&](const auto& t) { return t.second == name; });
+      if (had == todo.end()) todo.emplace_back(e.path(), name);
+      else if (ext == ".avi" && lower(had->first.extension().string()) == ".webm") had->first = e.path();  // the disc's own
     }
   std::sort(todo.begin(), todo.end(), [](const auto& a, const auto& b) { return a.second < b.second; });
   std::printf("progress 0 %zu\n", todo.size());
@@ -384,6 +550,23 @@ int main(int argc, char** argv) {
     Avi a;
     std::string err;
     const fs::path base = dst / name;
+    if (lower(path.extension().string()) == ".webm") {  // a compact original's: its kept header and FLAC beside it
+      const fs::path stem = path.parent_path() / path.stem();
+      std::error_code cec;
+      if (!read_kept_header(stem.string() + ".fmvh", &a, &err) ||
+          (a.has_audio && !read_flac_sound(stem.string() + ".flac", a, &a.sound, &err)) ||
+          !write_m1v(path.string(), base.string() + ".m1v", a.video.length, &err)) {
+        std::fprintf(stderr, "mw3import: %s: %s\n", path.string().c_str(), err.c_str());
+        ++failed;
+      } else {
+        if (a.has_audio) write_wav(base.string() + ".wav", a);
+        fs::copy_file(stem.string() + ".fmvh", base.string() + ".fmv", fs::copy_options::overwrite_existing, cec);  // last
+        if (cec) std::fprintf(stderr, "mw3import: %s: its header not copied (%s)\n", name.c_str(), cec.message().c_str()), ++failed;
+        else std::printf("mw3import: %s: %u frames (compact), %zu sound bytes\n", name.c_str(), a.video.length, a.sound.size()), ++made;
+      }
+      std::printf("progress %zu %zu %s\n", k + 1, todo.size(), name.c_str());
+      continue;
+    }
     if (!parse_avi(path.string(), &a, &err) || !write_m1v(path.string(), base.string() + ".m1v", a.video.length, &err)) {
       std::fprintf(stderr, "mw3import: %s: %s\n", path.string().c_str(), err.c_str());
       ++failed;
