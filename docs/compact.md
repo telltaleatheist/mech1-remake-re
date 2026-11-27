@@ -33,7 +33,11 @@ Internet Archive's, checked by its SHA-256) with the game's own programs:
 The archive is a .tar.xz: the manifest first, then every file in path order,
 times and owners zero, written by Python's lzma (preset 9e). The same input
 and the same encoders give the same bytes. The tool prints the catalog entry
-(url, sha256, size, name, note, game_min).
+(url, sha256, size, name, note, game_min). `--game-min` has no default: pass the
+game's own version, the first release that reads compacts (MechWarrior 3
+1.7.0, Pirate's Moon 1.3.0; each game numbers its releases on its own, so
+one value never serves both). A launcher skips an entry whose game_min the
+installed game does not reach.
 
 ### Left out
 
