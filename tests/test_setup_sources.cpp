@@ -17,6 +17,8 @@
 #include "mech3/game_setup.h"
 #include "mech3/patch_import.h"
 #include "mech3/source_install.h"
+#include "mech3/compact.h"
+#include "rekit/hash.h"
 #include <filesystem>
 
 #if MW3_HAVE_LIBARCHIVE
@@ -708,6 +710,104 @@ TEST(setup_mechwarrior3_checks_before_a_start) {
 
 // The real thing, when the backups are here (a long read: MW3_SETUP_LONG=1):
 // Redump's MechWarrior 3 zip, its data track 626 MB and two audio tracks.
+// The compact original (docs/compact.md): a .tar.xz with its manifest first is named by it, and installed as a copy
+// with every file checked against it, its music moved to the music folder; a changed, missing or other game's file
+// installs nothing.
+TEST(setup_install_a_compact_original) {
+  if (!have_games()) return;
+  namespace su = mech3::setup;
+  const std::string tmp = std::string(MW3_TEST_TMP) + "/compact";
+  std::error_code ec;
+  std::filesystem::remove_all(tmp, ec);
+  std::filesystem::create_directories(tmp, ec);
+  using Ordered = std::vector<std::pair<std::string, std::string>>;
+  const auto tar_xz = [&](const std::string& name, const Ordered& files) {
+    archive* a = archive_write_new();
+    archive_write_set_format_pax_restricted(a);
+    archive_write_add_filter_xz(a);
+    const std::string path = tmp + "/" + name;
+    archive_write_open_filename(a, path.c_str());
+    for (const auto& [p, data] : files) {
+      archive_entry* e = archive_entry_new();
+      archive_entry_set_pathname(e, p.c_str());
+      archive_entry_set_size(e, static_cast<la_int64_t>(data.size()));
+      archive_entry_set_filetype(e, AE_IFREG);
+      archive_entry_set_perm(e, 0644);
+      archive_write_header(a, e);
+      archive_write_data(a, data.data(), data.size());
+      archive_entry_free(e);
+    }
+    archive_write_close(a);
+    archive_write_free(a);
+    return path;
+  };
+  const auto sha = [](const std::string& s) { return rekit::sha256_hex(reinterpret_cast<const uint8_t*>(s.data()), s.size()); };
+  const Ordered files = {{"Mech3.exe", slurp(kGame + "/mw3-1.0/Mech3.exe")},
+                         {"zbd/reader.zbd", slurp(kGame + "/mw3-1.0/zbd/reader.zbd")},
+                         {"video/c1.webm", "pictures"},
+                         {"video/c1.flac", "sound"},
+                         {"video/c1.fmvh", "header"},
+                         {"music/track02.flac", "music"}};
+  const auto manifest = [&](const std::string& game, const std::string& bad_path, bool drop) {
+    std::string s = "{\"format\": \"compact 1\", \"game\": \"" + game + "\", \"version\": \"1.0\", \"name\": \"MechWarrior 3 1.0\", "
+                    "\"by\": \"a test\", \"files\": [";
+    bool first = true;
+    for (const auto& [p, data] : files) {
+      s += std::string(first ? "" : ", ") + "{\"path\": \"" + p + "\", \"size\": " + std::to_string(data.size()) + ", \"sha256\": \"" +
+           (p == bad_path ? std::string(64, '0') : sha(data)) + "\"}";
+      first = false;
+    }
+    if (drop) s += ", {\"path\": \"zbd/rimage.zbd\", \"size\": 1, \"sha256\": \"" + std::string(64, 'a') + "\"}";
+    return s + "]}";
+  };
+  const auto with = [&](const std::string& m) {
+    Ordered all = {{mech3::compact::kManifest, m}};
+    all.insert(all.end(), files.begin(), files.end());
+    return all;
+  };
+  const std::string good = tar_xz("mw3-compact.tar.xz", with(manifest("mw3", "", false)));
+  const mech3::source::Found f = mech3::source::map_source(good);
+  std::printf("  look: %s\n", mech3::source::game_words(f).c_str());
+  EXPECT(f.kind == mech3::source::Found::kInstall && f.compact == "MechWarrior 3 1.0 (compact, a test)" &&
+         mech3::source::game_words(f) == "MechWarrior 3 1.0 (compact, a test).");
+  const su::Result a = su::install_from_source(f, tmp + "/copy", "", tmp + "/music", tmp + "/write", nullptr);
+  std::printf("  install: %s\n", a.summary.c_str());
+  EXPECT(a.ok && a.music_tracks == 1 && slurp(tmp + "/music/track02.flac") == "music" &&
+         !std::filesystem::exists(tmp + "/copy/music") && slurp(tmp + "/copy/video/c1.webm") == "pictures" &&
+         std::filesystem::exists(tmp + std::string("/copy/") + mech3::compact::kManifest) &&
+         slurp(tmp + "/copy/mw3-install.txt").find("compact=MechWarrior 3 1.0") != std::string::npos &&
+         a.summary.find("every file checked") != std::string::npos);
+  // A changed file, a missing one, another game's: nothing installed, the reason given.
+  struct Bad {
+    std::string manifest, says;
+  };
+  const Bad bad[] = {{manifest("mw3", "video/c1.webm", false), "Its file video/c1.webm is not as its list says"},
+                     {manifest("mw3", "", true), "Its file zbd/rimage.zbd is missing"},
+                     {manifest("pm", "", false), "This compact copy is Pirate's Moon's, not this game's"}};
+  int n = 0;
+  for (const Bad& b : bad) {
+    const std::string name = "bad" + std::to_string(n++) + ".tar.xz";
+    const su::Result r = su::install_from_source(mech3::source::map_source(tar_xz(name, with(b.manifest))), tmp + "/bad", "",
+                                                 tmp + "/music-bad", tmp + "/write", nullptr);
+    std::printf("  %s: %s\n", name.c_str(), r.summary.c_str());
+    EXPECT(!r.ok && r.summary.find(b.says) != std::string::npos && !std::filesystem::exists(tmp + "/bad") &&
+           !std::filesystem::exists(tmp + "/bad.new") && !std::filesystem::exists(tmp + "/music-bad/track02.flac"));
+  }
+  // Not first in the archive: not named as a compact (a plain installed copy to the look).
+  Ordered late(files.begin(), files.end());
+  late.push_back({mech3::compact::kManifest, manifest("mw3", "", false)});
+  EXPECT(mech3::source::map_source(tar_xz("late.tar.xz", late)).compact.empty());
+  // The manifest's own checks: an unsafe path, a bad sum, another format.
+  mech3::compact::Manifest m;
+  std::string why;
+  EXPECT(!mech3::compact::parse(R"({"format": "compact 1", "game": "mw3", "files": [{"path": "../x", "size": 1, "sha256": ")" +
+                                    std::string(64, 'a') + "\"}]}",
+                                &m, &why) &&
+         why.find("not safe") != std::string::npos);
+  EXPECT(!mech3::compact::parse(R"({"format": "compact 1", "game": "mw3", "files": [{"path": "x", "size": 1, "sha256": "AB"}]})", &m, &why));
+  EXPECT(!mech3::compact::parse(R"({"format": "compact 2", "game": "mw3", "files": []})", &m, &why));
+}
+
 TEST(setup_map_the_real_redump_zip) {
   const char* zip = "/Volumes/iO/backups/win98/MechWarrior 3 (USA).zip";
   if (!std::getenv("MW3_SETUP_LONG") || !std::filesystem::exists(zip)) return;

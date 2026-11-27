@@ -74,7 +74,9 @@ What is built:
 - **SDL3_sound**: shared, every default decoder.
 - **FFmpeg**: LGPL 2.1, shared, only what mw3import uses (the AVI demuxer,
   the Indeo 5 decoder, the MPEG-1 video encoder and muxer, swscale, the file
-  protocol). On the Mac each architecture is configured and built apart
+  protocol; since 2026-11-27 also the Matroska/WebM and FLAC demuxers and the
+  VP9 and FLAC decoders and parsers, FFmpeg's own, for the compact original's movies,
+  docs/compact.md). On the Mac each architecture is configured and built apart
   (x86_64 cross-compiled, without its hand-written assembly) and the dylibs
   joined with `lipo`; install names `@rpath`.
   Configured with `--prefix=/ffbuild` and installed through `DESTDIR`

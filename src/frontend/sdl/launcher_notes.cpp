@@ -33,7 +33,7 @@ bool have_movies(const std::string& install, const std::string& write_dir) {
     for (const auto& e : std::filesystem::directory_iterator(zutl::any_case(d, "video"), ec)) {
       std::string x = e.path().extension().string();
       for (char& c : x) c = static_cast<char>(c >= 'A' && c <= 'Z' ? c + 32 : c);
-      if (x == ".avi" || x == ".fmv") return true;
+      if (x == ".avi" || x == ".fmv" || x == ".webm") return true;  // .webm: a compact original's (docs/compact.md)
     }
   }
   return false;
