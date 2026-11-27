@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The test ledger: a test that passed is not run again on the same code.
 
-    tools/test_ledger.py run <test binary> [--tests a,b,...] [--programs bin,...] [--force] [--mem-gb N] [--secs N]
-    tools/test_ledger.py status <test binary> [--tests a,b,...] [--programs bin,...]
+    tools/test_ledger.py run <test binary> [--tests a,b,...] [--programs bin,...] [--data path,...] [--force]
+                             [--mem-gb N] [--secs N]
+    tools/test_ledger.py status <test binary> [--tests a,b,...] [--programs bin,...] [--data path,...]
     tools/test_ledger.py selftest
 
 It builds nothing. The code a test ran on is its fingerprint: the content of
@@ -13,8 +14,9 @@ the compiler's version. The build folder's generated files and the binaries
 themselves are left out (the version define and `git describe` change them every
 commit; the define is taken out of the commands too). Paths inside the source
 tree are taken relative to it, so every worktree and checkout of the same code
-shares a fingerprint. Files the tests read while running (game data, assets,
-scripts) are not part of it.
+shares a fingerprint. The data the tests read while running is part of it too:
+every file under the source tree's assets/ (when there is one) and under each
+--data path. The player's install (game/) is not: it does not change.
 
 `run` skips each requested test (all of the binary's, without --tests) whose
 last result on this fingerprint is a pass, runs the rest in one process through
@@ -135,11 +137,30 @@ def compiler_version(build):
     return r.stdout.splitlines()[0] if r.stdout else ''
 
 
-def fingerprint(build, source, targets):
+def data_files(source, paths):
+    """Every file under the data paths (each relative to the source tree, or absolute), dotfiles left out."""
+    files = set()
+    for p in paths:
+        root = Path(p) if os.path.isabs(p) else source / p
+        if root.is_file():
+            files.add(str(root.resolve()))
+        elif root.is_dir():
+            for d, dirs, names in os.walk(root):
+                dirs[:] = [x for x in dirs if not x.startswith('.')]
+                files.update(str(Path(d, n).resolve()) for n in names if not n.startswith('.'))
+        else:
+            die(f'no data path {root}')
+    return sorted(files)
+
+
+def fingerprint(build, source, targets, data=()):
     """(fingerprint, test names found in the test binary's own sources)."""
     h = hashlib.sha256()
     names = []
     h.update(compiler_version(build).encode() + b'\n')
+    for f in data_files(source, data):
+        rel = os.path.relpath(f, source) if f.startswith(str(source) + os.sep) else f
+        h.update(f'data {rel}\t{hashlib.sha256(Path(f).read_bytes()).hexdigest()}\n'.encode())
     for t in targets:
         h.update(b'target ' + t.encode() + b'\n')
         for f in target_files(build, t):
@@ -217,12 +238,14 @@ def prepare(args):
     source = source_dir_of(build)
     programs = [Path(p).name for p in (args.programs.split(',') if args.programs else []) if p]
     targets = [binary.name] + [p for p in programs if p != binary.name]
-    fp, names = fingerprint(build, source, targets)
+    data = [d for d in (args.data.split(',') if args.data else []) if d]
+    if (source / 'assets').is_dir() and 'assets' not in data:
+        data.insert(0, 'assets')  # always: the launcher's and the game's tests read it
+    fp, names = fingerprint(build, source, targets, data)
     # Only the tests built in: a TEST() inside an #if the build leaves out (MW3_PM_SUITE) has no name string in it.
     if names:
-        alt = b'|'.join(re.escape(n.encode()) for n in sorted(names, key=len, reverse=True))
-        built = {m.decode() for m in re.findall(rb'(?<![A-Za-z0-9_])(' + alt + rb')\x00', binary.read_bytes())}
-        names = [n for n in names if n in built]
+        built = set(re.findall(rb'[A-Za-z0-9_]{2,}(?=\x00)', binary.read_bytes()))
+        names = [n for n in names if n.encode() in built]
     requested = [t for t in (args.tests.split(',') if args.tests else names) if t]
     unknown = [t for t in requested if t not in names]
     if unknown:
@@ -349,6 +372,10 @@ def selftest():
                                             'target_compile_definitions(selftests PRIVATE MW3_VERSION="v0-1-gabc")\n')
         (src / 'main.cpp').write_text(SELF_MAIN)
         (src / 'value.h').write_text('constexpr int kValue = 1;  // a\n')
+        (src / 'assets' / 'ui').mkdir(parents=True)
+        (src / 'assets' / 'ui' / 'menu.rml').write_text('<rml>a</rml>\n')
+        (src / 'data').mkdir()
+        (src / 'data' / 'table.json').write_text('{"a": 1}\n')
         quiet = dict(capture_output=True, text=True)
         if subprocess.run(['cmake', '-S', str(src), '-B', str(build), '-G', 'Ninja'], **quiet).returncode:
             die('selftest: cmake failed')
@@ -410,6 +437,18 @@ def selftest():
         code, out = run('--tests', 'beta', '--force')
         check('--force runs a passed test and marks it forced', code == 0 and len(lines()) == 9 and
               lines()[-1].get('forced') is True, out)
+        n = len(lines())
+        (src / 'assets' / 'ui' / 'menu.rml').write_text('<rml>b</rml>\n')
+        code, out = run()
+        check('a one-character change in assets/ reruns all three (assets/ is always in)', code == 0 and
+              len(lines()) == n + 3, out)
+        code, out = run('--data', 'data')
+        check('--data adds a folder: all three run on the new fingerprint', code == 0 and len(lines()) == n + 6, out)
+        code, out = run('--data', 'data')
+        check('the same --data again runs nothing', code == 0 and len(lines()) == n + 6, out)
+        (src / 'data' / 'table.json').write_text('{"a": 2}\n')
+        code, out = run('--data', 'data')
+        check('a change in a --data file reruns them', code == 0 and len(lines()) == n + 9, out)
         r = subprocess.run(me + ['status', str(bin_)], env=env, **quiet)
         check('status names what passed on this code', 'alpha: passed on this code' in r.stdout and
               'beta: passed on this code' in r.stdout, r.stdout + r.stderr)
@@ -429,6 +468,7 @@ def main():
         p.add_argument('binary')
         p.add_argument('--tests', help='whole test names, comma-separated (default: all of the binary\'s)')
         p.add_argument('--programs', help='programs the tests start, by path or target name, comma-separated')
+        p.add_argument('--data', help='files or folders the tests read, comma-separated (assets/ is always in)')
         p.add_argument('--repo', help='the repo name for the ledger (default: the remote main HEAD is nearest)')
         if name == 'run':
             p.add_argument('--force', action='store_true', help='run passed tests too (logged as forced)')
