@@ -1598,3 +1598,48 @@ game files' pick); shots `--launcher-screen place`, `found` (`mw1found` and
 `mw1origfound` until b5). Test: `sdl_program_launcher_finds_the_game_then_plays` (CHANGE
 FOLDER into a folder holding someone's file; someone's own `MechWarrior 3`
 folder refused), the screens test and PM's GAME FILES test (the headers).
+
+## The original game files (2026-11-27)
+
+A player's own start of `mw3` that finds no game files (no `--setup`: a
+launcher that drives the setup downloads them itself) opens the find screen
+as before, and now searches at once, as FIND THE GAME would. While it does,
+the launcher's signed catalog is asked on a thread (re-setup-kit's
+`catalog_sources`: `reverse-engineered.com/launcher/catalog.json`, then the
+hub's copy on GitHub, each read only when its `.sig` checks against the
+catalog key; `kOriginalCatalogs`, `kOriginalKeys` in launcher.cpp).
+
+- A copy found (an install, a disc in a drive) is offered as before; the
+  download is never mentioned.
+- None, and the catalog's `mw3` entry lists sources: "No copy of
+  MechWarrior 3 was found on this computer. Download the original game
+  files from <note> (<size>)?", with DOWNLOAD THE GAME FILES, PICK MY OWN
+  COPY and PICK A FOLDER. DOWNLOAD fetches each source in turn
+  (`fetch_original`: HTTPS only, the size and SHA-256 checked, a bad one
+  removed and the next tried) into the kit's marked folder in the system's
+  temp folder, then looks at the file and installs it as a pick would,
+  without USE THESE GAME FILES? (the press is the go). The file is deleted
+  once installed or refused, and at quit.
+- No catalog answers (offline, blocked): the screen is as before, the
+  picker opened.
+
+Checks: `MW3_ORIGINAL_CATALOG` (one address, `file://` allowed; "" asks
+none), `MW3_ORIGINAL_KEY` (its key), `MW3_LAUNCHER_DOWNLOAD` (DOWNLOAD and
+the notes' OK pressed). `sdl_program_plain_start_downloads_the_original_files`
+(a signed local catalog, the 1.2 patch's disc files zipped: asked,
+downloaded, installed, played, the download deleted; the question taken out,
+it fails) and `sdl_program_plain_start_goes_straight_in_or_to_setup` (no
+catalog asked).
+
+On the branch `pm`, `mw3pm`'s own start does the same with Pirate's Moon's
+find screen (`LauncherOptions::pm`, `files_pm_`): the catalog's `pm` entry,
+"No copy of Pirate's Moon was found on this computer. Download the original
+game files from <note> (<size>)?", and the kit's folder `rekit-original-mech3-pm`.
+A no-copy start went to PM's own find dialog until now (issue #13, from when
+the find screen was MechWarrior 3's); it now takes the find screen, which has
+been Pirate's Moon's since `LauncherOptions::pm`. A download counts as Pirate's
+Moon's by its `zbd/reader.zbd` (`pm::install_kind`). Check:
+`sdl_program_pm_downloads_the_original_files` (PM's suite: a signed local
+catalog listing a zip of PM's Mech3.exe, Mech3Msg.dll, zbd/reader.zbd and an
+empty video folder: asked, downloaded, installed, the download deleted; with
+`offer_download` left off, it fails).

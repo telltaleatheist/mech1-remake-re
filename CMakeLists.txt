@@ -1314,6 +1314,8 @@ if(SDL3_FOUND)
       tests/test_net_upnp.cpp
     )
     target_link_libraries(mw3sdltests PRIVATE mw3text mw3sdl mw3core SDL3::SDL3)
+    # The kit's test keys (signed catalogs in the original files' check; Monocypher is in rekit).
+    target_include_directories(mw3sdltests PRIVATE extern/re-setup-kit/tests extern/re-setup-kit/third_party)
     target_compile_definitions(mw3sdltests PRIVATE MW3_GAME_DIR="${MW3_GAME_DIR}"
                                                  MW3_TEST_TMP_ROOT="${CMAKE_BINARY_DIR}"
                                                  MW3_BIN="$<TARGET_FILE:mw3>"
@@ -1333,6 +1335,7 @@ if(SDL3_FOUND)
                      src/frontend/sdl/sdl_restart.cpp src/frontend/sdl/win_cmdline.cpp tests/test_win_cmdline.cpp tests/test_log_start.cpp
                      tests/test_quiet_music.cpp)  # ours: no music aloud in a run no player hears
       target_link_libraries(mw3pmsdltests PRIVATE mw3text mw3sdl pmcore mw3core SDL3::SDL3)
+      target_include_directories(mw3pmsdltests PRIVATE extern/re-setup-kit/tests extern/re-setup-kit/third_party)  # the kit's test keys
       target_compile_definitions(mw3pmsdltests PRIVATE MW3_PM_SUITE=1 MW3_GAME_DIR="${MW3PM_GAME_DIR}"
                                                        MW3_TEST_TMP_ROOT="${CMAKE_BINARY_DIR}"
                                                        MW3_BIN="$<TARGET_FILE:mw3pm>"
