@@ -12,7 +12,7 @@ prefix, at the Mac build's versions:
 
 | Library | Version | Source |
 | --- | --- | --- |
-| SDL3 | 3.4.12 | github.com/libsdl-org/SDL, release-3.4.12 |
+| SDL3 | 3.4.20 | github.com/libsdl-org/SDL, release-3.4.20 |
 | SDL3_ttf | 3.2.2 | github.com/libsdl-org/SDL_ttf, release-3.2.2, with FreeType 2.14.3 built in (`tools/deps/build_deps.sh linux`, docs/deps.md). A `-DSDLTTF_VENDORED=ON` build (its own FreeType 2.13.2 and HarfBuzz 8.5.0) draws TTF text a few pixels apart from the Mac's and the package's (2026-11-23) |
 | SDL3_sound | 3.2.0 | github.com/icculus/SDL_sound, v3.2.0 |
 
