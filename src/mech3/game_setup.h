@@ -100,6 +100,7 @@ struct DiscSource {
 };
 // The mounted drives holding an MW3 disc (DATA1.HDR at the root): Windows'
 // CD drives, macOS's /Volumes, Linux's /media/$USER and /run/media/$USER.
+// MW3_DISC_DRIVES (checks): a folder whose folders stand in for the drives.
 std::vector<DiscSource> find_discs();
 
 // Whether `dir` holds MechWarrior 3 (zbd/reader.zbd), and which data

@@ -2,6 +2,8 @@
 
 #include <cctype>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 
 #include "gamez/zutil/zutl_zar.h"
 #include "mech3/data_version.h"
@@ -151,6 +153,24 @@ Found from_kit(const rekit::Found& k) {
 
 Found map_source(const std::string& path, const MapProgress& progress) {
   return from_kit(rekit::find_source(path, source_rules(), progress));
+}
+
+Found::Game disc_game(const std::string& drive) {
+  for (const char* name : {"DATA1.HDR", "data1.hdr"}) {
+    std::ifstream f(std::filesystem::path(drive) / name, std::ios::binary);
+    if (!f) continue;
+    std::vector<uint8_t> b;
+    char buf[65536];
+    while (f.read(buf, sizeof buf) || f.gcount() > 0) {
+      b.insert(b.end(), buf, buf + f.gcount());
+      if (b.size() > (8u << 20)) return Found::kUnknown;  // no installer header is this big (map_source's limit)
+    }
+    Found::Game g = Found::kUnknown;
+    std::string v, why;
+    hdr_info(b, &g, &v, &why);
+    return g;
+  }
+  return Found::kUnknown;
 }
 
 }  // namespace mech3::source

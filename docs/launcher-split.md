@@ -148,6 +148,15 @@ Each need, and what fills it:
   - `in_place` covers a copy already set up.
   - `--search` takes MW3's search and then `find_discs`, so a disc in a drive
     is still found.
+  - `--status` too (2026-11-27): with no copy where it looks, a drive
+    holding the game's own disc (`find_discs`, then `source::disc_game`
+    on its DATA1.HDR's file list, a few KB, so Pirate's Moon's disc is not
+    MW3's nor the reverse) is reported `ready` with the note "found by the
+    search, not set up yet": offered, never taken, looked at no further
+    (its version and movies are the setup's `--look`). So the launcher
+    fetches no original files a disc in the drive has (it fetches only for
+    `missing`). `MW3_DISC_DRIVES` (checks) names a folder whose folders
+    stand in for the drives.
   - A Pirate's Moon pick shown under MW3, and the reverse, keeps its sentence
     ("This is MechWarrior 3, not Pirate's Moon...") through `recognise`.
 - **GAME FILES' list of every copy** (`find_copies`: each copy's folder, data

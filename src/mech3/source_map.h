@@ -56,5 +56,8 @@ Found from_kit(const rekit::Found& k);
 
 // Plain words for a game found, for the player.
 std::string game_words(const Found& f);
+// The game on the disc in a drive (2026-11-27, --status's look at the drives): its DATA1.HDR's file list as
+// map_source reads it (a few KB, nothing else); kUnknown without one or when it holds neither game.
+Found::Game disc_game(const std::string& drive);
 
 }  // namespace mech3::source
