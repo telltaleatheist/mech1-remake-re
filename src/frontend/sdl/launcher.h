@@ -38,6 +38,10 @@ struct LauncherOptions {
   // A plain mw3 start that found no install (docs/games-layout.md): the find
   // screen alone, straight on into the game once there is one.
   bool setup_only = false;
+  // With setup_only, a player's own start that found no game files (ours, 2026-11-27, docs/launcher.md, The
+  // original game files): the find screen searches at once and, when nothing is found, asks whether to download the
+  // original game files from the launcher's signed catalog. Never with --setup: a launcher downloads them itself.
+  bool offer_download = false;
   // With setup_only: an install the plain start's search found elsewhere, looked at first and offered to be
   // copied in (INSTALL), so the original may be deleted afterwards (2026-11-21).
   std::string look_first;

@@ -1085,6 +1085,7 @@ int program(int argc, char** argv) {
   // --setup (the launcher contract): the find screen alone, whatever is found.
   bool setup_only = a.setup || !a.launcher_shot.empty();  // a shot of the find screen: drawn once, then quit
   std::string look_first;  // a find to copy in (below)
+  bool offer_download = false;  // no install found at a player's start: the find screen may offer the download
   if (!a.ready_file.empty()) sdlfe::set_ready_file(a.ready_file);
   mech3::mods_other_game() = {a.other_write_dir, a.other_install};  // W15: a mod for the other game goes there
   // Shift held at the start (ours, 2026-11-21): the find screen, to choose other game files without a terminal.
@@ -1104,7 +1105,7 @@ int program(int argc, char** argv) {
     } else if (!f.dir.empty()) {
       find_install(a);  // the same find: taken, saved as find_install does
     } else {
-      setup_only = true;
+      setup_only = offer_download = true;
       std::printf("mw3: no install found: the find screen\n");
     }
   }
@@ -1113,6 +1114,7 @@ int program(int argc, char** argv) {
     lo.setup_only = setup_only;
     lo.shot = a.launcher_shot, lo.screen = a.launcher_screen;
     lo.look_first = look_first;
+    lo.offer_download = offer_download;
     lo.choose_again = choose_again;
     lo.write_dir_fixed = write_dir_given;
     lo.write_dir = a.write_dir, lo.cfg_install = a.cfg_install, lo.cfg_mw1_game = a.cfg_mw1_game;
