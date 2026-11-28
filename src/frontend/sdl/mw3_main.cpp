@@ -1433,6 +1433,9 @@ rekit::sdl::MenuHooks menu_hooks(const Args& a, mech3::Mech3App& app, mech3::Gam
     std::error_code ec;
     h.files_in_use = a.install.empty() ? std::string() : std::filesystem::absolute(a.install, ec).lexically_normal().string();
   }
+  // A fallback only: assets/setup-kit-settings.json, shipped beside the program (program_dir), names the report page
+  // and the catalogs, and wins, as do the signed catalog's live values and a player's copy in the write dir
+  // (rekit/settings.h; docs/in-game-menu.md, The kit's settings file). The keys stay compiled in, below.
   h.report_url = "https://github.com/telltaleatheist/mech3-pm-re/issues";
   h.install = sdlfe::install_kind();
   h.program_dir = sdlfe::program_dir();
@@ -1467,6 +1470,7 @@ rekit::sdl::MenuHooks menu_hooks(const Args& a, mech3::Mech3App& app, mech3::Gam
   const char* world = SDL_getenv("MW3_UPDATE_WORLD");
   if (h.install != rekit::InstallKind::kDevelopment || (world && *world))
     h.update.recipe = {"pm", "mech3-pm-re", "pm-v", MW3_VERSION, sdlfe::update_file(h.install)};  // the catalog's "pm"
+  // The catalogs: a fallback too, for a copy without the settings file (it wins; never with MW3_UPDATE_WORLD's file://).
   h.update.catalogs = {"https://reverse-engineered.com/launcher/catalog.json",
                        "https://raw.githubusercontent.com/telltaleatheist/mw3-re/main/catalog/games.json",
                        "https://git.owenmorgan.com/telltaleatheist/mw3-re/raw/branch/main/catalog/games.json"};
@@ -1485,6 +1489,14 @@ rekit::sdl::MenuHooks menu_hooks(const Args& a, mech3::Mech3App& app, mech3::Gam
     h.update.allow_file = true, h.update.no_restart = true;
   }
   h.quit = [&pump] { pump.post_quit(); };  // as the window's close button: the game's own way out
+  // Checks (RE_KIT_TEST) open no page or folder in the player's browser or file manager: the address is logged only.
+  h.open_url = [](const std::string& url) {
+    if (SDL_getenv("RE_KIT_TEST")) {
+      std::printf("mw3: menu: (a check) not opened: %s\n", url.c_str());
+      return true;
+    }
+    return SDL_OpenURL(url.c_str());
+  };
   h.runs_on = [&engine] { return engine.run_while_inactive(); };  // a network game runs on under the menu (W45)
   h.entries.push_back({"UPGRADES", [&mp, &app, &engine] { open_upgrades(mp, app, engine); },
                        [&app] { return upgrades_reachable(app); }, "In the main menu or a mission"});

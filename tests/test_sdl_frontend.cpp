@@ -12938,7 +12938,8 @@ const std::string kUnset = "\x01unset";  // run's env: the variable taken away f
 // mw3 with `args`, the env's pairs set (or kUnset: unset) for the run and put back after; its log, and its exit in
 // *code (-1: did not end).
 std::string run(const std::string& log, const std::vector<std::string>& args,
-                const std::vector<std::pair<const char*, std::string>>& env, int* code, int seconds = 240) {
+                const std::vector<std::pair<const char*, std::string>>& env, int* code, int seconds = 240,
+                const char* bin = MW3_BIN) {
   std::vector<std::pair<const char*, std::optional<std::string>>> was;
   for (const auto& [k, v] : env) {
     const char* old = std::getenv(k);
@@ -12946,7 +12947,7 @@ std::string run(const std::string& log, const std::vector<std::string>& args,
     if (v == kUnset) unsetenv(k);
     else setenv(k, v.c_str(), 1);
   }
-  const pid_t pid = spawn_mw3(args, log);
+  const pid_t pid = spawn_bin(bin, args, log);
   for (const auto& [k, v] : was) v ? (void)setenv(k, v->c_str(), 1) : (void)unsetenv(k);
   int status = 0;
   *code = waited(pid, &status, seconds) && WIFEXITED(status) ? WEXITSTATUS(status) : -1;
@@ -13290,6 +13291,81 @@ TEST(sdl_menu_in_game_upgrades_unavailable_at_the_start) {
   EXPECT(ingame::menu_in_shot(dir + "/menu.bmp"));
 #endif
   ingame::keep_shots(dir);
+  fs::remove_all(dir, ec);
+}
+
+// The setup kit's settings file (rekit/settings.h; docs/in-game-menu.md, The kit's settings file): REPORT A PROBLEM's
+// page comes from the file beside the program, not the compiled fallback. A release-like copy (the program in a folder of its own with the file beside it, as each package has it, its report_url changed) opens the file's address; the build's own copy (beside the build's program, from assets/) is read by a development run and names the game's issues.
+TEST(sdl_menu_in_game_report_page_from_the_shipped_settings) {
+  if (!have_fonts()) return;
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/sdl_menu_in_game_report_shipped", prog = dir + "/prog";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(prog);
+  fs::create_directories(dir + "/wd1");
+  fs::create_directories(dir + "/wd2");
+  // The shipped file as assets/ has it, its report page changed (a fresh name: a copied program is a new path).
+  std::string shipped = ingame::read(std::string(MW3_ASSETS_FOR_TESTS) + "/setup-kit-settings.json");
+#if defined(MW3_PM_SUITE)
+  const std::string ours = "https://github.com/telltaleatheist/mech3-pm-re/issues";  // Pirate's Moon's own
+#else
+  const std::string ours = "https://github.com/telltaleatheist/mech3-re/issues";
+#endif
+  const std::string theirs = "https://example.com/shipped-report";
+  EXPECT(shipped.find("\"report_url\": \"" + ours + "\"") != std::string::npos);
+  shipped.replace(shipped.find(ours), ours.size(), theirs);
+  std::ofstream(prog + "/setup-kit-settings.json") << shipped;
+  const std::string bin = prog + "/" + fs::path(MW3_BIN).filename().string();  // mw3, or Pirate's Moon's mw3pm
+  fs::copy_file(MW3_BIN, bin, ec);
+  EXPECT(!ec);
+  const std::vector<std::pair<const char*, std::string>> env = {{"RE_KIT_TEST", "1"}, {"MW3_MENU_AT", "60:ddrdde"},
+                                                                {"MW3_MENU_SHOT", dir + "/report.bmp@20"}, {"MW3_MENU_CLOSE", "1"}};
+  int code = 0, built = 0;
+  const std::string log = ingame::run(dir + "/run.log", {"-nofmv", "--frames", "200", "--nosound", "--hidden", "--write-dir", dir + "/wd1"},
+                                      env, &code, 300, bin.c_str());
+  const std::string dev = ingame::run(dir + "/dev.log", {"-nofmv", "--frames", "200", "--nosound", "--hidden", "--write-dir", dir + "/wd2"},
+                                      env, &built, 300);
+  const std::string build_file = (fs::path(MW3_BIN).parent_path() / "setup-kit-settings.json").string();
+  std::printf("  release-like: exit %d, read %d, opened theirs %d | development: exit %d, read %d, opened ours %d\n", code,
+              ingame::in(log, "mw3: settings: read " + prog + "/setup-kit-settings.json"),
+              ingame::in(log, "mw3: menu: open the report page: " + theirs + "\n"), built,
+              ingame::in(dev, "mw3: settings: read " + build_file), ingame::in(dev, "mw3: menu: open the report page: " + ours + "\n"));
+  EXPECT(code == 0 && built == 0);
+  EXPECT(ingame::in(log, "mw3: settings: read " + prog + "/setup-kit-settings.json"));
+  EXPECT(ingame::in(log, "mw3: menu: open the report page: " + theirs + "\n"));
+  EXPECT(ingame::in(log, "mw3: menu: (a check) not opened: " + theirs + "\n"));  // no browser in a check
+  EXPECT(ingame::in(dev, "mw3: settings: read " + build_file));
+  EXPECT(ingame::in(dev, "mw3: menu: open the report page: " + ours + "\n"));
+  EXPECT(ingame::menu_in_shot(dir + "/report.bmp"));
+  ingame::keep_shots(dir);
+  fs::remove_all(dir, ec);
+}
+
+// A player's own setup-kit-settings.json in the write dir (the data folder) is read after the shipped one and wins:
+// its report_url is the page REPORT A PROBLEM opens; the shipped file's other values stand.
+TEST(sdl_menu_in_game_player_settings_override_the_shipped) {
+  if (!have_fonts()) return;
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/sdl_menu_in_game_player_settings", wd = dir + "/wd";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(wd);
+  const std::string mine = "https://example.com/player-report";
+  std::ofstream(wd + "/setup-kit-settings.json") << "{\n  \"version\": 1,\n  \"report_url\": \"" << mine << "\"\n}\n";
+  int code = 0;
+  const std::string log = ingame::run(dir + "/run.log", {"-nofmv", "--frames", "200", "--nosound", "--hidden", "--write-dir", wd},
+                                      {{"RE_KIT_TEST", "1"}, {"MW3_MENU_AT", "60:ddrdde"}, {"MW3_MENU_SHOT", dir + "/report.bmp@20"},
+                                       {"MW3_MENU_CLOSE", "1"}},  // (the menu closes after its last shot)
+                                      &code, 300);
+  const std::string build_file = (fs::path(MW3_BIN).parent_path() / "setup-kit-settings.json").string();
+  const size_t shipped_at = log.find("mw3: settings: read " + build_file), player_at = log.find("mw3: settings: read " + wd + "/setup-kit-settings.json");
+  std::printf("  exit %d, shipped read %d, player's read after it %d, opened the player's %d\n", code, shipped_at != std::string::npos,
+              player_at != std::string::npos && player_at > shipped_at, ingame::in(log, "mw3: menu: open the report page: " + mine + "\n"));
+  EXPECT(code == 0);
+  EXPECT(shipped_at != std::string::npos && player_at != std::string::npos && player_at > shipped_at);
+  EXPECT(ingame::in(log, "mw3: menu: open the report page: " + mine + "\n"));
+  EXPECT(!ingame::in(log, "mw3: menu: open the report page: https://github.com/"));
   fs::remove_all(dir, ec);
 }
 #endif  // !_WIN32 (the in-game menu)

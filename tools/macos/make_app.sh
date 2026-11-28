@@ -243,6 +243,9 @@ mkdir -p "$APP/Contents/Resources/licenses/rmlui"
 cp third_party/rmlui/LICENSE.txt "$APP/Contents/Resources/licenses/rmlui/"
 cp third_party/rmlui/Include/RmlUi/Core/Containers/LICENSE.txt "$APP/Contents/Resources/licenses/rmlui/LICENSE-containers.txt"
 cp tools/macos/THIRD-PARTY.txt "$APP/Contents/Resources/THIRD-PARTY.txt"
+# The setup kit's settings file (rekit/settings.h), in the game's program_dir (Contents/Resources), so the record
+# below lists it.
+cp assets/setup-kit-settings.json "$APP/Contents/Resources/setup-kit-settings.json"
 # libarchive, zlib and liblzma: linked in with --deps (build_deps.sh keeps
 # their licences in the prefix); Homebrew's libarchive is a dylib, its
 # licences copied with it above.
@@ -267,6 +270,9 @@ while IFS= read -r -d '' f; do
   [[ "$(file -b "$f")" == Mach-O* ]] && LEAVE+=(--leave-out "$(basename "$f")")
 done < <(find "$APP/Contents/Resources" -type f -print0)
 python3 -I extern/re-setup-kit/tools/files_manifest.py "$APP/Contents/Resources" ${LEAVE[@]+"${LEAVE[@]}"} || exit 1  # bash 3.2: an empty array is unbound under set -u
+if ! grep -q '  setup-kit-settings.json$' "$APP/Contents/Resources/rebuild-files.sha256"; then
+  echo "the record does not list setup-kit-settings.json" >&2; exit 1
+fi
 "$SIGNER" app "$APP" --entitlements tools/macos/mw3.entitlements
 # The package carries mw3pm as the app's executable.
 for p in mw3pm; do [ -x "$APP/Contents/MacOS/$p" ] || { echo "no $p in the app" >&2; exit 1; }; done

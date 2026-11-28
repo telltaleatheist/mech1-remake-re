@@ -1188,6 +1188,14 @@ if(SDL3_FOUND)
                          COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:mw3> $<TARGET_FILE_DIR:mw3>
                          COMMAND_EXPAND_LISTS)
     endif()
+    # The setup kit's settings file (rekit/settings.h; docs/in-game-menu.md), beside mw3 as in every package, so a
+    # development run reads it too; copied again whenever it changes.
+    set(MW3_KIT_SETTINGS_OUT ${CMAKE_BINARY_DIR}/setup-kit-settings.json)
+    add_custom_command(OUTPUT ${MW3_KIT_SETTINGS_OUT}
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/assets/setup-kit-settings.json ${MW3_KIT_SETTINGS_OUT}
+                       DEPENDS ${CMAKE_SOURCE_DIR}/assets/setup-kit-settings.json)
+    add_custom_target(mw3_kit_settings DEPENDS ${MW3_KIT_SETTINGS_OUT})
+    add_dependencies(mw3 mw3_kit_settings)
     # The launcher (docs/launcher.md, The two programs; games-layout.md): the
     # main icon, its own program; MECHWARRIOR 3 starts mw3 beside it.
     add_executable(mw3launcher
@@ -1295,6 +1303,14 @@ if(SDL3_FOUND)
         target_compile_definitions(mw3pm PRIVATE MW3PM_GAME_DIR="${MW3PM_GAME_DIR}" MW3_GAME_DIR="${MW3PM_GAME_DIR}"
                                                   MW3_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets")
       endif()
+      # The setup kit's settings file (rekit/settings.h; docs/in-game-menu.md), beside mw3pm as in every package, so a
+      # development run reads it too; copied again whenever it changes. (MW3's rule above is mw3's, off on `pm`.)
+      set(MW3PM_KIT_SETTINGS_OUT ${CMAKE_BINARY_DIR}/setup-kit-settings.json)
+      add_custom_command(OUTPUT ${MW3PM_KIT_SETTINGS_OUT}
+                         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/assets/setup-kit-settings.json ${MW3PM_KIT_SETTINGS_OUT}
+                         DEPENDS ${CMAKE_SOURCE_DIR}/assets/setup-kit-settings.json)
+      add_custom_target(mw3pm_kit_settings DEPENDS ${MW3PM_KIT_SETTINGS_OUT})
+      add_dependencies(mw3pm mw3pm_kit_settings)
     endif()
     # The Indeo helper's stand-in for the tests (tools/indeo; the real
     # mw3indeo.exe is 32-bit Windows, built by tools/windows/build.cmd).
@@ -1347,7 +1363,8 @@ if(SDL3_FOUND)
                                                        MW3PM_BIN="$<TARGET_FILE:mw3pm>"  # b6: mw3pm's own find screen's tests
                                                        MW3_LAUNCHER_BIN=""
                                                        MW3_FAKE_INDEO=""
-                                                       MW3_IMPORT_BIN="")
+                                                       MW3_IMPORT_BIN=""
+                                                       MW3_ASSETS_FOR_TESTS="${CMAKE_SOURCE_DIR}/assets")
       add_dependencies(mw3pmsdltests mw3pm)
     endif()
   else()

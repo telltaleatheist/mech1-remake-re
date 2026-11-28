@@ -31,6 +31,8 @@ $game = Get-ChildItem -LiteralPath $Dist -Recurse -File |
 foreach ($exe in @('mw3pm.exe')) {
   if (-not (Test-Path -LiteralPath (Join-Path $Dist $exe))) { $missing += "$exe (the program itself)" }
 }
+# The setup kit's settings file beside mw3pm.exe (its program_dir; rekit/settings.h).
+if (-not (Test-Path -LiteralPath (Join-Path $Dist 'setup-kit-settings.json'))) { $missing += 'setup-kit-settings.json (the setup kit''s settings, beside mw3pm.exe)' }
 # The find screen's document, styles and fonts: without them it cannot be drawn (launcher_ui.cpp).
 foreach ($f in 'ui\launcher.rml', 'ui\launcher.rcss', 'font.ttf', 'font_body.ttf', 'badge_pm.png', 'bg_metal.png', 'bg_stars.png', 'emblem.png') {
   if (-not (Test-Path -LiteralPath (Join-Path $Dist "assets\launcher\$f"))) { $missing += "assets\launcher\$f (the find screen)" }

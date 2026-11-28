@@ -105,6 +105,40 @@ way a player reaches it, so that its BACK goes where the player expects:
   and it cannot be picked. A debug `--mission` run is in the mission state, so it is
   reachable there as in a campaign.
 
+## The kit's settings file
+
+The kit's tunable values (the hint, the sounds' volumes, CHECK MY FILES' list, REPORT A
+PROBLEM's page, where the signed catalog is asked, the update check's interval, the
+network time limits) are data: `assets/setup-kit-settings.json`, the kit's own file with
+MechWarrior 3's `report_url` (mech3-re's issues) and `catalogs` (the three addresses
+the launcher asks), the rest at the kit's defaults (`rekit/settings.h`; the kit's
+DESIGN.md, Settings). Layers, each over the one before: the kit's defaults, this file
+beside the program (`program_dir`), the signed catalog's live values (kept in the write
+dir's `setup-kit-live.json`), then a player's own `setup-kit-settings.json` in the write
+dir. The log names each file read (`mw3: settings: read ...`) and any value it
+corrected.
+
+- **Where it is:** beside `build/mw3` in a development build (CMake's
+  `mw3_kit_settings`, copied again when the file changes); `Contents/Resources` on the
+  Mac; the AppImage's top (`$APPDIR`, where the record is; not `usr/bin`); beside
+  `mw3.exe` on Windows. Every package lists it in its record, and the package scripts
+  refuse a record without it (check_dist too on Windows). The launcher alone carries
+  none: it has no in-game menu.
+- **The compiled values** (`h.report_url`, `h.update.catalogs` in `menu_hooks`) are
+  fallbacks for a copy without the file; the file wins. The signing keys stay compiled
+  in: they are never in the file.
+- **Checks open nothing:** under `RE_KIT_TEST` the menu's `open_url` hook logs
+  `mw3: menu: (a check) not opened: <address>` instead of opening a page or folder.
+- **The kit's setup screen** (`--setup`, `--choose-files`) reads the file from
+  `SDL_GetBasePath()`, its search folder. That is `program_dir` on the Mac and on
+  Windows. On the AppImage it is `usr/bin`, so the setup screen uses the kit's
+  defaults there; it reads only the download time limits, which the file leaves at
+  the defaults.
+- **Pirate's Moon (branch `pm`):** the same file with its own `report_url`
+  (mech3-pm-re's issues) and the same three catalogs; CMake's `mw3pm_kit_settings`
+  puts it beside `build/mw3pm`, and PM's packages place it as above, beside
+  `mw3pm.exe` on Windows (PM's package has no launcher, so it is always there).
+
 ## Packaging: the record of the files
 
 The kit's `tools/files_manifest.py` writes `rebuild-files.sha256` at the program
@@ -192,3 +226,9 @@ The tests are in `tests/test_sdl_frontend.cpp`, `sdl_menu_in_game_*`:
   newer release with its notes.
 - UPGRADES at the game's first frame: dimmed with its note, and Enter leaves the menu
   open.
+- REPORT A PROBLEM from the settings file: a release-like copy (mw3 in a folder of its
+  own with the file beside it, its address changed) opens the file's address, and a
+  development run reads the copy beside `build/mw3`
+  (`sdl_menu_in_game_report_page_from_the_shipped_settings`);
+- a player's copy in the write dir read after the shipped one, its address winning
+  (`sdl_menu_in_game_player_settings_override_the_shipped`).
