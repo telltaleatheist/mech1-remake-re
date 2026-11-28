@@ -287,20 +287,30 @@ every mission.
 
 The nine, sorted (2026-11-27; one ledger run, then experiments, each a temporary edit restored from a saved copy).
 None is a break in shared code that main or MW3 would have. One was a gap in PM itself (the stations, last; fixed).
+The five PM by design are in `tests/pm_left_out.h`, each with the PM test that covers it.
 - `mission_c1m1_tag_fires_from_the_mech_headless`: PM by design, PM's weapon list. The tests-only helper
   `mech_tag_muzzle` adds weapon 0x20, MW3's TAG; in PM's list (`mech_names.cpp`) 0x20 is MGUNH and TAG is `kTag`
   0x2c. With `kTag` it passes (mounted, the muzzle 7.8 m out). PM's `pm_tag_fires_from_the_mech` covers TAG.
 - `net_mech_made_from_a_record_c1m1_headless`, `net_hostile_peer_c1m1_headless`, `net_chat_panel_c1mp1_headless`: PM
   by design, where the handlers go on. PM's network start (0x0046ef80) puts no handlers on; the launch does
   (`net_register`, 0x0046f030). The check helpers (`program_net_mech_check`, `program_net_hostile_check`, and
-  `chat_session` for the chat and pose checks) start the game with `net_start` alone, so Bob's state is never routed
-  and no mech is made from his record. With `net_register()` after the helpers' `net_start()` all three pass.
-- `net_remote_pose_follows_the_states_c1mp1_headless`: three of its five checks are the handlers, as above. The two
-  left are timing, probably PM's, not proven. PM's state apply aims at the point sent (0x004705e0, checked against
-  the exe by `test_pm_net_apply`), and standing, the arms still close in at 0.001 a frame after the 40-frame window
-  (a spread of 0.0128 against 0.002). Stopped, the remote mech's throttle, eased up to 0.23 of the 0.6 sent, decays
-  about 1.5% a frame, and its gait stays a walk 20 frames past the 70-frame window (3.9 m against under 1). Both
-  settle; the gait is PM's mech step (cfbf95c6d); the controls' easing is the same code as main's.
+  `chat_session` for the chat and pose checks) started the game with `net_start` alone, so Bob's state was never routed
+  and no mech was made from his record. Fixed in the helpers (not the tests): on `pm` they call `net_register()` after
+  `net_start()`, as PM's launch does, and all three pass from the pm build.
+- `net_remote_pose_follows_the_states_c1mp1_headless`: its three handler checks pass with the helpers' fix. The two left
+  are timing, and the timing is PM's exe, proven (2026-11-27, temporary diagnostics restored from saved copies):
+  - Standing, the arms: PM aims at the point sent (0x004705e0, `test_pm_net_apply`; MW3 rebuilt the aim from a turn and a
+    range), and each arm eases toward it in 0x004681b0 (bit-checked in `test_pm_parts.py`) by exp(-aim_rate dt): the
+    def's aim_rate 3.0 at the test's 16 ms frames, 0.953 a frame, measured exactly (frames 58-60). The right arm's yaw
+    starts 0.15 rad off the helper's point, so after the 40-frame window 0.022 remains and the next 20 frames close 0.0137
+    of it: the 0.0128 measured. PM's clamp of the target before easing is not it (MW3's order gives 0.0156).
+  - Stopped, the gait: the remote's throttle eases by 0x004285d0 (`test_pm_controls.py`), the exe's Schraudolph exp,
+    which for small steps acts at 0.5/ln 2 = 0.72 of the def's rates (0.5 up, 1.3 down): 0.24 of the 0.6 sent after the
+    90 walking frames, 0.06 after the next 90. PM's gait 0x00418fc0 (`test_pm_gait.py`) keeps the walk while the throttle
+    times the speed factor is above the walk's low step, so the mech walks on through the window (3.9 m).
+  - The mech is not it: the Shadow Cat (main's roster 13) in place of PM's Mad Cat settles the same way.
+  So MW3's 40- and 70-frame windows don't fit PM on these inputs. The test is not in `pm_left_out.h` (told not to list
+  it before the proof); its two lines show in a pm build's run.
 - `mission_c1m1_nav_waynet_headless`: PM by design, PM's names. PM's load asks for `waynet_<block>` in
   `reader<block>.zbd` (`waynet_m1`, 0x00493a90); MW3's `c1/reader.zbd` has `waynet_1`, `waynet_ia1`,
   `waynet_mp1`. No waynet, no nav points. No PM test checks the nav points in a mission (the builder is

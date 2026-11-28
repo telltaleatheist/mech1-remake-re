@@ -4593,6 +4593,11 @@ The screen after the pilot for INSTANT ACTION, 0x00488bc0 (details:
   date and time someone left in it. The game never minds: it finds each
   dialog by its name.
 
+- **In Pirate's Moon multiplayer, a mobile field base never sets up on the map's fixed repair point.** With
+  mobile field bases allowed, the game puts a station at each of the map's base points except the fixed repair
+  point, and uses only the others; MechWarrior 3's code has no such exception. (0x004938e0; docs/pm-tests.md, The
+  multiplayer stations.)
+
 - **In Pirate's Moon only you can fall over from a hard landing.** In
   MechWarrior 3 any mech that came down hard or fast sideways could fall. In
   Pirate's Moon the roll is made only for the player, so enemies always land

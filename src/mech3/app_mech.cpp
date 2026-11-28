@@ -1539,6 +1539,7 @@ bool chat_session(Mech* me, znet::Transport** bob) {
   }
   znet::poll(-1);
   net_start();
+  net_register();  // Pirate's Moon: the launch's (0x0046f030), where MW3's start put the handlers on
   {
     float at[3];
     mech_world_position(me, at);
@@ -1835,6 +1836,7 @@ bool program_net_mech_check(NetMechSeen* out) {
   znet::poll(-1);
   const size_t before = znet::session().handlers.size();
   net_start();
+  net_register();  // Pirate's Moon: the launch's (0x0046f030), where MW3's start put the handlers on
   float at[3];
   mech_world_position(me, at);
   at[0] += 30.0f;
@@ -1909,6 +1911,7 @@ bool program_net_hostile_check(NetHostileSeen* out) {
   b->set_data(false, 2, rec.data(), static_cast<uint32_t>(rec.size()));
   znet::poll(-1);
   net_start();
+  net_register();  // Pirate's Moon: the launch's (0x0046f030), where MW3's start put the handlers on
   float at[3];
   mech_world_position(me, at);
   at[0] += 30.0f;
