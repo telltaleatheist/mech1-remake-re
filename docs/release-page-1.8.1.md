@@ -1,8 +1,8 @@
 MechWarrior 3 on its own: the program and its own launcher. The BattleTech launcher installs and updates it from this
 page.
 
-**Most players want the launcher** (it installs MechWarrior 3, Pirate's Moon, MechWarrior 1 Remake and The Crescent
-Hawk's Inception and keeps them up to date): [BattleTech launcher 2.2.0](https://github.com/telltaleatheist/mw3-re/releases/tag/v2.2.0).
+**Most players want the launcher** (it installs MechWarrior 3, Pirate's Moon, MechWarrior 1 Remake, MechWarrior 1
+Rebuild, The Crescent Hawk's Inception and The Crescent Hawks' Revenge and keeps them up to date): [BattleTech launcher 2.2.0](https://github.com/telltaleatheist/mw3-re/releases/tag/v2.2.0).
 
 ## Download
 
