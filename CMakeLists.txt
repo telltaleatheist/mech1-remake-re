@@ -854,6 +854,7 @@ if(MW3_BUILD_PM)
     tests/pm/test_pm_salvage_world.cpp
     tests/pm/test_pm_chat_reset.cpp
     tests/pm/test_pm_options.cpp
+    tests/pm/test_pm_pad_throttle.cpp  # issue #10 item 6 (main's test_program.cpp issue10_pad_throttle_*) on PM
     tests/pm/test_pm_sound_range.cpp
     tests/pm/test_pm_hud.cpp
     tests/pm/test_pm_volley.cpp

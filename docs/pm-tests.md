@@ -1943,3 +1943,15 @@ stand-in, runs MW3's reset 0x004e9590 instead, as every other PM_AI-gated piece 
 design, not a play difference; the test asserted PM's branch alone. It now checks the branch each mode takes (PM's
 stand-down and no MW3 reset under PM_AI=1; MW3's reset once and PM's record untouched under PM_AI=0), as
 `hit_an_ally`'s test does; a break taking PM's stand-down under PM_AI=0 is caught.
+
+## The pad throttle on PM (2026-11-27)
+
+`pm_pad_throttle_keeps_the_zero_point_through_the_screens_headless` (`tests/pm/test_pm_pad_throttle.cpp`, mw3pmtests) is
+main's issue #10 item 6 test on Pirate's Moon's table and data. A fake gamepad's left stick (source 2) is bound to Throttle
+through PM's real screens (Options, Controls, Assign Axis at OK, the controls' ACCEPT and its save, the options' ACCEPT),
+held at rest (0.5) and held part up (0.7), bug fixes on and off. Then c1m1 is started on the saved settings (the axis
+table cleared first, so the binding comes from the file) and the stick goes full up, back, full down, let go. Bound
+x -1 + 0 (or - 0.4): full ahead 1.00 (0.60), 0 at the zero point, full reverse -1.00, at rest 0 (-0.40). Each case runs
+in a forked child, seed 1. Passed under PM_AI=1 and PM_AI=0. Break (the gamepad exception taken out of the throttle's
+scaling, controls_menu.cpp): with bug fixes on the pad is bound as a lever (x -0.5 + 0.5), half throttle at rest,
+caught on every check; with them off nothing changes, as on main.
