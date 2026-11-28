@@ -1,6 +1,7 @@
 #include "mech3/game_setup.h"
 #include "mech3/compact.h"
 #include "rekit/files.h"
+#include "rekit/manifest.h"
 
 #include <algorithm>
 #include <cctype>
@@ -112,6 +113,17 @@ Result install_from_disc(const std::string& source, const std::string& out_dir, 
   r.files = d.files, r.movies = d.movies, r.music_tracks = d.music, r.bytes = d.bytes;
   for (const std::string& l : d.log) r.detail += l + "\n";
   if (d.ok) {
+    // Ours: the record of the files the in-game menu's CHECK MY FILES reads (rekit/manifest.h), written once as the
+    // kit's own installs write it (its setup_ops.cpp install(): the whole folder, nothing left out). --install-from is
+    // this function's one caller and the one install that does not go through the kit. Not cancellable: the install
+    // stands; without a record the menu uses own_check.
+    std::string why;
+    p(Progress{"Recording the files", 1.0, ""});
+    if (!rekit::write_manifest(out_dir, {}, [&](int, int, const std::string& path) {
+          p(Progress{"Recording the files", 1.0, path});
+          return true;
+        }, &why))
+      r.warnings.push_back("The record of the files (for CHECK MY FILES) could not be written: " + why + ".");
     r.summary = version_words(r.version, pirates_moon) + " is installed in " + out_dir + " (" +
                 std::to_string(d.files) + " files" + (pirates_moon ? "" : " and " + std::to_string(d.movies) + " movies") +
                 ", " + mb(d.bytes) + ").";
