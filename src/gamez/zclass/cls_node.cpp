@@ -199,7 +199,7 @@ int node_link(Node* parent, Node* child) {
   }
   parent->set_flags(parent->flags() | 2);
   if (parent->changed) parent->changed->removable = 0;
-  node_mark_moved(child);  // Pirate's Moon 0x004fd6f0
+  if (zgame::game().node_link_marks_moved) node_mark_moved(child);  // Pirate's Moon 0x004fd6f0 (pm-tests.md, MW3's tests built from pm)
   return 0;
 }
 

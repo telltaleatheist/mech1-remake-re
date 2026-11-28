@@ -184,6 +184,9 @@ struct Table {
   bool dev_fps_font_pm = false;
   // The script command PrintChildren (PM 0x005b2c60): the current node's children's names. MW3 has none.
   bool interp_print_children = false;
+  // Linking a child marks it moved (PM's node_link 0x004fd6f0 calls 0x004ff6d0). MW3's 0x004eba90 does not, and MW3's
+  // read_node links before the children are cleared (docs/pm-tests.md, MW3's tests built from pm).
+  bool node_link_marks_moved = false;
 };
 
 const Table& mw3_table();

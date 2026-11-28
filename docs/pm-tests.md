@@ -225,8 +225,8 @@ vehicle image leaves the turret's limits out; `import_takes_a_mech_loadout_for_t
 (PM's lab names its loadout file, 0x00427f50); `test_teleport` gets `MW3PM_GAME_DIR`; `mech_tag_muzzle` (a tests-only
 helper PM's `app_weapons.cpp` had dropped) is back. MW3's programs and `mw3sdltests` are not targets here even with
 the switch on (they start MW3's programs, built from `main`), and `mw3pmsdltests` is built either way, so a plain
-`ninja` builds the whole tree. `mission_c1m1_tag_fires_from_the_mech_headless` crashes loading MW3's mission, with the
-mission tests below.
+`ninja` builds the whole tree. `mission_c1m1_tag_fires_from_the_mech_headless` crashed loading MW3's mission, with the
+mission tests below (fixed 2026-11-27; it still fails on its checks).
 
 MW3's non-mission tests on `pm` read "0 failed" plus one line, "left out on pm: N (tests/pm_left_out.h)": that
 table lists each MW3 test whose code is Pirate's Moon's here, with the PM test that covers it and the PM commit or
@@ -254,8 +254,8 @@ commit's lobby files): these 13 fail or crash here by design.
 - `net_remote_pose_follows_the_states_c1mp1_headless`, `net_pilot_respawns_c1mp1_headless`,
   `net_mobile_base_stations_c1mp1_headless`, `net_mech_made_from_a_record_c1m1_headless`, `net_hostile_peer_c1m1_headless`,
   `net_game_over_reaches_the_main_menu_c1m1_headless`, `net_chat_panel_c1mp1_headless`, `mission_c1m1_nav_waynet_headless`,
-  `campaign_debriefing_scores_the_missions_objectives_headless`: each crashes loading MW3's mission in PM's tree reader
-  (`zcls::node_link` under `read_tree`), the mechlib reads' crash.
+  `campaign_debriefing_scores_the_missions_objectives_headless`: each crashed loading MW3's mission (`zcls::node_link`
+  under `read_tree`), the mechlib reads' crash, fixed 2026-11-27 (below); all but the game-over one still fail.
 
 Since the lobby became PM's (pieces 6a to 6c-2, rerun 2026-11-08 at 6c-2 and its parent), every `net_lobby_*` test but
 `net_lobby_chat_headless` fails by design, on MW3's lobby: its control ids (LOCK 0xb, READY 0x15, PLAYERS_LIST 0x17;
@@ -268,6 +268,22 @@ PM's 0xd, 0x1c, 0x1e), its rules message (0x10 bytes; PM's 0x18, so a MW3 one is
 PM's own headless lobby tests replace them in piece 8.
 
 A failure outside these lists is news.
+
+The mechlib reads' crash, found and fixed 2026-11-27. PM's tree copy (5a1aef5bf, 2026-11-04) put PM's moved mark
+(0x004ff6d0, `node_mark_moved`) into the shared `zcls::node_link`, as PM's link 0x004fd6f0 does; MW3's link 0x004eba90
+has no mark. MW3's `read_node` (0x004fce50) copies the file's 0xd0 bytes over the new node, so its child count is the
+file's while its `children` array is still null, and it links the node to its parent before `read_tree` clears them;
+the mark then walks the null array (lldb: EXC_BAD_ACCESS at 0 in `node_mark_moved`, from `create_ai_mech`). PM's own
+`read_node` clears them first, so PM never hit it, and nothing that ships reaches MW3's reader on this branch (mw3pm
+sets PM's table at start). The mark is now behind the table's `node_link_marks_moved` (PM true, MW3 false), so MW3's
+link is MW3's again here. With it, `mission_c1m1_hud_views_drawn_headless`, the `issue10_pad_throttle` and
+`issue10_middle_button` tests and `controls_lever_direction` pass from `build-mw3`, so MW3's mission tests work as a
+shared-code check from `pm` again. The ten mission tests above that crashed in the reader (with
+`mission_c1m1_tag_fires_from_the_mech_headless`) no longer crash: `net_game_over_reaches_the_main_menu_c1m1_headless`
+passes, and the other nine fail on their own checks (32 in all, 2026-11-27), not yet sorted into PM-by-design or news.
+The default command-line mech (`Launch::mech` 13) is right for both: the shared roster on this branch is PM's
+(`mech_names.cpp`), where 13 is the Mad Cat; the "stealth" reports in MW3's logs are the stealth object's, made in
+every mission.
 
 ## MW3's tests rewritten for PM (`pm_moved.py`)
 
