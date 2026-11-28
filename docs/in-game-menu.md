@@ -129,11 +129,11 @@ corrected.
   in: they are never in the file.
 - **Checks open nothing:** under `RE_KIT_TEST` the menu's `open_url` hook logs
   `mw3: menu: (a check) not opened: <address>` instead of opening a page or folder.
-- **The kit's setup screen** (`--setup`, `--choose-files`) reads the file from
-  `SDL_GetBasePath()`, its search folder. That is `program_dir` on the Mac and on
-  Windows. On the AppImage it is `usr/bin`, so the setup screen uses the kit's
-  defaults there; it reads only the download time limits, which the file leaves at
-  the defaults.
+- **The kit's setup screen** (`--setup`, which the launcher asks) reads it from the
+  folder the game passes (`SetupOptions::program_dir`), set to the same
+  `sdlfe::program_dir()` as the menu's, so the AppImage reads `$APPDIR` there too.
+  `--choose-files` and Shift at the start show the game's own find screen, which
+  reads no kit settings.
 - **Pirate's Moon (branch `pm`):** the same file with its own `report_url`
   (mech3-pm-re's issues) and the same three catalogs; CMake's `mw3pm_kit_settings`
   puts it beside `build/mw3pm`, and PM's packages place it as above, beside
