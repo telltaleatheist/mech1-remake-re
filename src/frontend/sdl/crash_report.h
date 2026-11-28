@@ -1,7 +1,9 @@
 #pragma once
 // Ours, not original code (docs/program.md, The log): a crash says why, in the
 // log and in a message box, rather than the window just going away.
+#include <functional>
 #include <string>
+#include <vector>
 
 namespace sdlfe {
 
@@ -14,6 +16,20 @@ struct ProgramName {
   std::string id;       // "mw1"
   std::string title;    // "MechWarrior 1 Remake"
   std::string version;  // its own (mw1-v...), in place of the engine's
+  // The in-game setup menu's (mw3_main.cpp, menu_hooks): its report page, its own releases (the catalog's entry, the
+  // repo, the tags' prefix and the file an install updates from, "{tag}" for the tag; update_file_setup a Windows
+  // Setup's, else update_file), and whether GAME FILES offers CHANGE (PM's find screen: PM's files alone).
+  std::string report_url;
+  std::string update_key, update_repo, update_tag_prefix, update_file, update_file_setup;
+  bool change_files = true;
+  std::vector<std::string> keep;  // the write dir's files an update backs up first, besides PM's (its saves)
+  std::string files_note;         // GAME FILES without CHANGE: where to change them
+  std::string badge;              // the menu's medallion, a PNG in program_dir (sdlfe::program_dir); "" none
+  // UPGRADES: where it can open and the opening, in place of PM's Upgrades page (in a mission, after the pause's
+  // OPTIONS); RESET SETTINGS: the program's own settings to their defaults after PM's, `settings` (in the write dir)
+  // backed up first besides PM's. Null: PM's alone.
+  std::function<bool()> upgrades_reachable, upgrades_open, reset_own;
+  std::vector<std::string> settings;
 };
 ProgramName& program_name();
 

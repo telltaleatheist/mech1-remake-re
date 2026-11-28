@@ -17,7 +17,7 @@
   "_click_volume": "0 to 1: the menu's click",
   "hover_volume": 0.7,
   "_hover_volume": "0 to 1: the menu's hover",
-  "report_url": "https://github.com/telltaleatheist/mech3-pm-re/issues",
+  "report_url": "https://github.com/telltaleatheist/mech1-remake-re/issues",
   "_report_url": "an https:// address: REPORT A PROBLEM's page (empty: the game's own; the catalog's report page comes before this)",
   "catalogs": [
     "https://reverse-engineered.com/launcher/catalog.json",

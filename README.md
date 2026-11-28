@@ -72,6 +72,13 @@ it.
 `mw1 --version` prints the version. Version numbers: the second number is a
 feature update, the third is bug fixes.
 
+## What's new in 1.2.0
+
+A setup menu inside the game (Cmd + Shift + F1 on the Mac, Shift + Alt + F1 elsewhere): the game files in use, updates,
+reporting a problem, checking your files, resetting the settings and your data folder. Started without the launcher,
+the Remake checks for updates and says so in the corner. A gamepad's throttle keeps Assign Axis's zero point. The full
+notes: [mw1/dist/RELEASE-NOTES-1.2.0.md](mw1/dist/RELEASE-NOTES-1.2.0.md).
+
 ## What's new in 1.1.5
 
 A crash at quit after the sound output changed is fixed (SDL 3.4.20), and the Remake's copy of MechWarrior (1989) leaves

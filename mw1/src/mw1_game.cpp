@@ -3666,6 +3666,36 @@ class Loop : public mech3::ProgramFlow, public mech3::ObjectivesExtension {
   HubOptionsState* hub_options_state() const { return hub_options_state_; }
   SettingsState* settings_state() const { return settings_state_; }
   bool open_settings_for_tests() { return ge_ && open_settings(*ge_); }
+  // FIXES 152: the setup kit's menu (mw1_main.cpp). UPGRADES is MW1's SETTINGS on ENHANCEMENTS, over the title, the hub,
+  // its options or SETTINGS itself, and in a mission once the pause's OPTIONS has opened it (the menu goes there).
+  bool menu_upgrades_reachable() {
+    mech3::Mech3App* app = mech3::app_if_any();
+    if (!ge_ || !app || app->pending() != 0) return false;
+    const zgame::State* now = app->current();
+    for (const zgame::State* s : {static_cast<const zgame::State*>(menu_state_), static_cast<const zgame::State*>(hub_state_),
+                                  static_cast<const zgame::State*>(hub_options_state_), static_cast<const zgame::State*>(settings_state_)})
+      if (s && now == s) return true;
+    return now == &mech3::states().core;
+  }
+  bool menu_open_enhancements() {
+    mech3::Mech3App* app = mech3::app_if_any();
+    if (!ge_ || !app) return false;
+    const bool up = settings_state_ && app->current() == static_cast<zgame::State*>(settings_state_);
+    if (!up && !open_settings(*ge_)) return false;
+    settings_state_->show_tab(Tab::kEnhancements);
+    std::printf("mw1: menu's UPGRADES: SETTINGS on ENHANCEMENTS%s\n", up ? " (up already)" : "");
+    return true;
+  }
+  // RESET SETTINGS after PM's: every section's DEFAULTS (mw1.cfg's sound among them), TEXTURES the device's largest
+  // again (at_start), and SETTINGS redrawn if it is up.
+  bool menu_reset_own() {
+    if (!ge_) return false;
+    for (int32_t t = 0; t < kTabCount; ++t) defaults(*ge_, static_cast<Tab>(t));
+    settings::at_start(*ge_);
+    if (settings_state_) settings_state_->show_tab(settings_state_->tab());
+    std::printf("mw1: menu's RESET SETTINGS: every section's DEFAULTS\n");
+    return true;
+  }
   EventState* event_state() const { return event_up_ ? event_state_ : nullptr; }
   int32_t event_id() const { return event_up_ && !ev_panel_.journal && !ev_panel_.news ? ev_shown_.event : -1; }
   const LoadingSeen& loading_seen() const { return seen_; }
@@ -5076,6 +5106,9 @@ const ResultsPanel* game_loop_results_shown() { return the_loop() ? &the_loop()-
 HubOptionsState* game_loop_hub_options() { return the_loop() ? the_loop()->hub_options_state() : nullptr; }
 SettingsState* game_loop_settings() { return the_loop() ? the_loop()->settings_state() : nullptr; }
 bool game_loop_open_settings() { return the_loop() && the_loop()->open_settings_for_tests(); }
+bool game_loop_menu_upgrades_reachable() { return the_loop() && the_loop()->menu_upgrades_reachable(); }
+bool game_loop_menu_open_enhancements() { return the_loop() && the_loop()->menu_open_enhancements(); }
+bool game_loop_menu_reset_own() { return the_loop() && the_loop()->menu_reset_own(); }
 void game_loop_press(int32_t button) {
   if (the_loop()) the_loop()->press(button);
 }

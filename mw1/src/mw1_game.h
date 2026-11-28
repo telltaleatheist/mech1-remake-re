@@ -114,6 +114,11 @@ class SettingsState;
 }
 settings::SettingsState* game_loop_settings();
 bool game_loop_open_settings();
+// FIXES 152: the setup kit's menu's UPGRADES (MW1's SETTINGS on ENHANCEMENTS: where it can open, the opening) and
+// RESET SETTINGS' own part (every section's DEFAULTS), for mw1_main's sdlfe::program_name.
+bool game_loop_menu_upgrades_reachable();
+bool game_loop_menu_open_enhancements();
+bool game_loop_menu_reset_own();
 // The results screen's state once made (FIXES.md item 19; tests: its screen shows what the player sees), and the last
 // panel it showed.
 namespace results {

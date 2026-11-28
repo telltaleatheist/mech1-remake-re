@@ -55,6 +55,7 @@ class SdlRender3D : public platform::Render3D {
     display_held_ = on;
     return true;
   }
+  bool display_held() const { return display_held_; }
 
   // Saves the next presented frame as a BMP instead of showing it (the next one shown, past a held display).
   void capture_next(const char* bmp_path) {

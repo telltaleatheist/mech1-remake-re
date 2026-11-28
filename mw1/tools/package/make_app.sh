@@ -195,6 +195,9 @@ EOF
 cp mw1/dist/README-MW1.txt "$APP/Contents/Resources/README.txt"
 cp mw1/dist/THIRD-PARTY-MW1.txt "$APP/Contents/Resources/THIRD-PARTY-MW1.txt"
 cp tools/macos/THIRD-PARTY.txt "$APP/Contents/Resources/THIRD-PARTY.txt"
+# The setup kit's settings (the report page, the catalogs; rekit/settings.h) in program_dir, Contents/Resources.
+cp assets/setup-kit-settings.json "$APP/Contents/Resources/setup-kit-settings.json"
+cp assets/launcher/badge_mw1.png "$APP/Contents/Resources/badge_mw1.png"  # the menu's medallion, beside it
 if [ -f LICENSE ]; then cp LICENSE "$APP/Contents/Resources/LICENSE.txt"; fi
 mkdir -p "$APP/Contents/Resources/assets/fonts" "$APP/Contents/Resources/licenses/liberation" "$APP/Contents/Resources/licenses/anton"
 cp assets/fonts/*.ttf "$APP/Contents/Resources/assets/fonts/"
@@ -217,6 +220,18 @@ if [ -n "$DEPS" ]; then
   [ -s "$FTL" ] || { echo "no FreeType licence in the app ($FTL): run tools/deps/build_deps.sh mac again" >&2; exit 1; }
 fi
 
+# The record of the app's files for the in-game menu's CHECK MY FILES (the kit's tools/files_manifest.py), at
+# Contents/Resources/rebuild-files.sha256 (program_dir), covering Resources only, as MechWarrior 3's make_app.sh does:
+# codesign seals the rest and rewrites each Mach-O, so any in Resources is left out. Written before signing so the seal
+# covers it.
+LEAVE=()
+while IFS= read -r -d '' f; do
+  [[ "$(file -b "$f")" == Mach-O* ]] && LEAVE+=(--leave-out "$(basename "$f")")
+done < <(find "$APP/Contents/Resources" -type f -print0)
+python3 -I extern/re-setup-kit/tools/files_manifest.py "$APP/Contents/Resources" ${LEAVE[@]+"${LEAVE[@]}"} || exit 1  # bash 3.2: an empty array is unbound under set -u
+if ! grep -q '  setup-kit-settings.json$' "$APP/Contents/Resources/rebuild-files.sha256"; then
+  echo "the record does not list setup-kit-settings.json" >&2; exit 1
+fi
 # Signing (the kit's script): every Mach-O inside first (the libraries), then the app, whose own executable, mw1, is
 # signed with it. tools/macos/mw3.entitlements grants nothing.
 "$SIGNER" app "$APP" --entitlements tools/macos/mw3.entitlements

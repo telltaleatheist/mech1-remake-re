@@ -231,6 +231,28 @@ int main(int argc, char** argv) {
   // Moon's (mw3_game_main's, through sdlfe::program_name: unset, PM's own).
   const char* version = mw3_version_tag + std::strlen("MW3-PROGRAM-VERSION:");
   sdlfe::program_name() = {"mw1", mw1::kTitle, version};
+  // The in-game setup menu's (mw3_main.cpp, menu_hooks): the Remake's issues, its own releases (the catalog's "mw1"),
+  // and no CHANGE (PM's find screen; the Remake's three games' files are chosen in the launcher).
+  sdlfe::program_name().report_url = "https://github.com/telltaleatheist/mech1-remake-re/issues";
+  sdlfe::program_name().update_key = "mw1", sdlfe::program_name().update_repo = "mech1-remake-re";
+  sdlfe::program_name().update_tag_prefix = "mw1-v";
+#if defined(_WIN32)
+  sdlfe::program_name().update_file = "MW1-Remake-{tag}-win64.zip";
+  sdlfe::program_name().update_file_setup = "MW1-Remake-Setup-{tag}.exe";
+#elif defined(__APPLE__)
+  sdlfe::program_name().update_file = "MW1-Remake-{tag}-mac.dmg";
+#else
+  sdlfe::program_name().update_file = "MW1-Remake-{tag}-x86_64.AppImage";
+#endif
+  sdlfe::program_name().change_files = false;
+  sdlfe::program_name().keep = {mw1::kCfg, "mw1save1.txt", "mw1save1.prev", "mw1save2.txt", "mw1save2.prev",
+                                "mw1save3.txt", "mw1save3.prev"};  // FIXES 125's slots
+  sdlfe::program_name().files_note = "To use other game files, change them in the BattleTech launcher.";
+  sdlfe::program_name().upgrades_reachable = mw1::game_loop_menu_upgrades_reachable;
+  sdlfe::program_name().upgrades_open = mw1::game_loop_menu_open_enhancements;  // MW1's SETTINGS, not PM's page
+  sdlfe::program_name().reset_own = mw1::game_loop_menu_reset_own;
+  sdlfe::program_name().settings = {mw1::kCfg};  // backed up before RESET SETTINGS, with PM's
+  sdlfe::program_name().badge = "badge_mw1.png";  // the medallion, beside setup-kit-settings.json in every package
   sdlfe::window_name() = mw1::kTitle;  // FIXES 139: the game window's title, over PM's
   // A crash's box (Mac, Linux): the crash's handler starts this program again as `mw1 --crash-box <text>`, which
   // shows the box and is all it does. Before MW1's start, which would have taken it for a game's start.

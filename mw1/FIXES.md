@@ -2886,3 +2886,23 @@ about 6 s with its speed up, moving 0 m, before it walked.
   has "MSG_" in it.
 - **Not covered:** a company save made before this that holds a salvaged Exotic loadout keeps the id in its saved
   copy. A rename at load would cover it, if anyone sees one.
+
+## 152. [x] The setup kit's in-game menu named Pirate's Moon, its report page and its updates PM's *(done: mw1-v1.2.0)*
+- **What showed:** with pm main 34ab3834e merged (the kit's in-game menu, step 5), mw1's menu said PIRATE'S MOON in its
+  header and sentences, REPORT A PROBLEM opened mech3-pm-re's issues, UPDATES looked for pm-v releases and their
+  PM-Rebuild files, and GAME FILES' CHANGE restarted into PM's find screen (PM's files alone; the Remake's three are
+  chosen in the launcher). Over the mech bay's first-run pass (the display held back, Render3D::hold_display) the menu
+  opened and held the game but was never shown: a frozen screen.
+- **Fix (engine, opt-in):** `sdlfe::ProgramName` (FIXES 123's) also carries the report page, the update recipe (key,
+  repo, tag prefix, file names, the Windows Setup's) and the saves an update backs up, and whether CHANGE is offered.
+  `mw1_main` sets them: mech1-remake-re's issues, the catalog's "mw1" (mw1-v tags, MW1-Remake-* files), no CHANGE,
+  mw1.cfg and the three slots' saves, the header in its title's capitals with its medallion (badge_mw1.png in
+  program_dir), GAME FILES' note pointing to the launcher, UPGRADES as MW1's SETTINGS on ENHANCEMENTS (FIXES 126's
+  screen; in a mission after the pause's OPTIONS opens it), and RESET SETTINGS ending with every section's DEFAULTS
+  (mw1.cfg's sound) and backing up mw1.cfg. Unset (MW3, PM), the menu is PM's as before. The menu's pause lets a held display
+  go while it is up and holds it again after. `assets/setup-kit-settings.json` names the Remake's issues, and the
+  packages ship it and the medallion with the record of their files (rebuild-files.sha256) in program_dir, as MW3's
+  and PM's do.
+- **Tests:** mw3pmsdltests' mw1_menu_* (mw1/tests/test_mw1_kit_menu.cpp): the corner notice and prompt for a stand-in
+  mw1-v9.9.0, the launcher's CHECK NOW, the report page, the menu seen over the mech bay's pass, the medallion,
+  UPGRADES on the title and in a mission, RESET SETTINGS with MW1's own.

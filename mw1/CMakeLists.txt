@@ -65,6 +65,13 @@ target_compile_definitions(mw1tests PRIVATE MW3_GAME_DIR="${MW3_GAME_DIR}" MW3PM
 set_target_properties(mw1tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})  # beside mw3pmtests
 enable_testing()
 add_test(NAME mw1tests COMMAND mw1tests)
+# The setup kit's in-game menu in mw1 (its name, report page, releases; over the mech bay's pass), on the in-game menu
+# helpers of Pirate's Moon's SDL tests: built into mw3pmsdltests, which starts mw1 for them.
+if(TARGET mw3pmsdltests)
+  target_sources(mw3pmsdltests PRIVATE tests/test_mw1_kit_menu.cpp)
+  target_compile_definitions(mw3pmsdltests PRIVATE MW1_BIN="$<TARGET_FILE:mw1>")
+  add_dependencies(mw3pmsdltests mw1)
+endif()
 
 if(TARGET mw3pm)
   find_package(SDL3 CONFIG REQUIRED)  # its imported target is mw3-re's directory's alone
@@ -231,4 +238,13 @@ if(TARGET mw3pm)
   add_dependencies(mw1 mw1images)
   add_custom_command(TARGET mw1 POST_BUILD
                      COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_BINARY_DIR}/mw1gen $<TARGET_FILE_DIR:mw1>/mw1data)
+endif()
+# The in-game menu's medallion (FIXES 152) beside mw1 as in every package (program_dir), so a development run shows it.
+if(TARGET mw1)
+  set(MW1_BADGE_OUT ${CMAKE_BINARY_DIR}/badge_mw1.png)
+  add_custom_command(OUTPUT ${MW1_BADGE_OUT}
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different ${MW3RE_DIR}/assets/launcher/badge_mw1.png ${MW1_BADGE_OUT}
+                     DEPENDS ${MW3RE_DIR}/assets/launcher/badge_mw1.png)
+  add_custom_target(mw1_badge DEPENDS ${MW1_BADGE_OUT})
+  add_dependencies(mw1 mw1_badge)
 endif()

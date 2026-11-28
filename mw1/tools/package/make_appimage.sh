@@ -72,8 +72,18 @@ LD_LIBRARY_PATH="$PREFIX/lib:$LD_LIBRARY_PATH" "$TOOLS/linuxdeploy-x86_64.AppIma
 [ -f "$APPDIR/usr/bin/mw1data/zbd/mw1image.zbd" ] || { echo "no mw1data beside mw1" >&2; exit 1; }
 grep -qx 'Exec=mw1' "$APPDIR"/*.desktop || { echo "the AppImage does not start mw1" >&2; exit 1; }
 case "$VER" in *-dirty) echo "warning: $VER: a dirty tree, not for release" >&2 ;; esac
+# The setup kit's settings (the report page, the catalogs; rekit/settings.h) at the AppImage's top: program_dir is
+# $APPDIR there (sdlfe::program_dir), not usr/bin.
+cp assets/setup-kit-settings.json "$APPDIR/setup-kit-settings.json"
+cp assets/launcher/badge_mw1.png "$APPDIR/badge_mw1.png"  # the menu's medallion, beside it
 # No local path or user name in anything shipped.
 python3 -I tools/deps/check_paths.py "$APPDIR" || exit 1
+# The record of the AppDir's files for the in-game menu's CHECK MY FILES (the kit's tools/files_manifest.py; the
+# game finds it at $APPDIR), before the AppImage squashes the folder.
+python3 -I extern/re-setup-kit/tools/files_manifest.py "$APPDIR" || exit 1
+if ! grep -q '  setup-kit-settings.json$' "$APPDIR/rebuild-files.sha256"; then
+  echo "the record does not list setup-kit-settings.json" >&2; exit 1
+fi
 mkdir -p build-mw1-linux/dist
 OUT="build-mw1-linux/dist/MW1-Remake-$VER-x86_64.AppImage"
 ARCH=x86_64 "$TOOLS/appimagetool-x86_64.AppImage" --runtime-file "$TOOLS/runtime-x86_64" "$APPDIR" "$OUT"

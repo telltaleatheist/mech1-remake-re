@@ -13747,7 +13747,9 @@ TEST(sdl_menu_in_game_report_page_from_the_shipped_settings) {
   fs::create_directories(dir + "/wd2");
   // The shipped file as assets/ has it, its report page changed (a fresh name: a copied program is a new path).
   std::string shipped = ingame::read(std::string(MW3_ASSETS_FOR_TESTS) + "/setup-kit-settings.json");
-#if defined(MW3_PM_SUITE)
+#if defined(MW1_BIN)
+  const std::string ours = "https://github.com/telltaleatheist/mech1-remake-re/issues";  // the Remake's repo ships its own
+#elif defined(MW3_PM_SUITE)
   const std::string ours = "https://github.com/telltaleatheist/mech3-pm-re/issues";  // Pirate's Moon's own
 #else
   const std::string ours = "https://github.com/telltaleatheist/mech3-re/issues";

@@ -54,6 +54,7 @@
 #include <SDL3/SDL.h>
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstdio>
 #include <deque>
@@ -1352,6 +1353,7 @@ namespace {
 struct MenuPause {
   rekit::sdl::GameMenu* menu = nullptr;
   bool held = false, was_active = false;
+  bool display_was_held = false;  // a held display (MW1's mech-bay pass) let go while the menu is up, held again after
   uint32_t idle_ms = 100;
   uint64_t last_present_ms = 0;
   int game_frames = 0;           // presents the game made (none while held, but in a network game)
@@ -1381,6 +1383,16 @@ struct MenuPause {
 rekit::sdl::Theme menu_theme() {
   rekit::sdl::Theme t;
   t.header = "PIRATE'S MOON";
+  // Another program on this main (sdlfe::program_name): its own title in capitals, and its medallion beside it.
+  const sdlfe::ProgramName& named = sdlfe::program_name();
+  if (!named.id.empty()) {
+    t.header = named.title;
+    for (char& c : t.header) c = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+  }
+  std::error_code ec;
+  if (const std::filesystem::path b = std::filesystem::path(sdlfe::program_dir()) / named.badge;
+      !named.badge.empty() && std::filesystem::is_regular_file(b, ec))
+    t.badge = b.string();
   return t;
 }
 
@@ -1391,7 +1403,15 @@ rekit::sdl::Theme menu_theme() {
 // state change pending (the main menu's screens); not while the game is still starting or changing screens. The menu
 // dims the entry elsewhere.
 bool upgrades_reachable(mech3::Mech3App& app) {
+  if (const auto& own = sdlfe::program_name().upgrades_reachable) return own();  // another program's own (MW1's SETTINGS)
   return app.current() == &mech3::states().core || (mech3::options_upgrades_state() && app.pending() == 0);
+}
+// The page itself: PM's Upgrades page, or another program's own (sdlfe::program_name().upgrades_open).
+bool push_upgrades(mech3::GameEngine& engine) {
+  if (const auto& own = sdlfe::program_name().upgrades_open) return own();
+  const zgame::Handle u = mech3::options_upgrades_state();
+  if (u) engine.push_state(u, 0);
+  return u != 0;
 }
 
 void open_upgrades(MenuPause& mp, mech3::Mech3App& app, mech3::GameEngine& engine) {
@@ -1402,8 +1422,7 @@ void open_upgrades(MenuPause& mp, mech3::Mech3App& app, mech3::GameEngine& engin
     std::printf("mw3: menu: UPGRADES: the pause screen, then its Upgrades page\n");
     return;
   }
-  if (const zgame::Handle u = mech3::options_upgrades_state(); u && app.pending() == 0) {
-    engine.push_state(u, 0);
+  if (app.pending() == 0 && push_upgrades(engine)) {
     std::printf("mw3: menu: UPGRADES: the Upgrades page\n");
     return;
   }
@@ -1426,8 +1445,11 @@ rekit::sdl::MenuHooks menu_hooks(const Args& a, mech3::Mech3App& app, mech3::Gam
     if (!editor_ui.event(e)) input.on_event(e);
   };
   auto* out = dynamic_cast<sdlfe::SdlSoundOutput*>(sound);
-  h.pause = [&mp, &app, &input, &engine, out] {
+  h.pause = [&mp, &app, &input, &engine, &window, out] {
     mp.held = true, mp.was_active = app.active();
+    // Ours: a display held back (Render3D::hold_display, MW1's mech-bay pass) showed no frame, so the menu, which
+    // holds the game, was never seen and the screen stayed frozen. Shown while the menu is up; held again after.
+    if (sdlfe::SdlRender3D* r = window.render(); r && r->display_held()) mp.display_was_held = true, r->hold_display(false);
     if (mp.was_active) app.on_window_activate(0);
     if (out) out->set_focused(false);
     mp.idle_ms = app.idle_wait_ms_, app.idle_wait_ms_ = 16;
@@ -1435,8 +1457,10 @@ rekit::sdl::MenuHooks menu_hooks(const Args& a, mech3::Mech3App& app, mech3::Gam
     mp.scaled_at_open = ztimer::state().total_scaled;
     input.refresh();
   };
-  h.resume = [&mp, &app, &input, &engine, &pump, out] {
+  h.resume = [&mp, &app, &input, &engine, &pump, &window, out] {
     mp.held = false, app.idle_wait_ms_ = mp.idle_ms, mp.say_next_dt = true;
+    if (mp.display_was_held)
+      if (sdlfe::SdlRender3D* r = window.render()) mp.display_was_held = false, r->hold_display(true);
     const bool focus = input.focused() || pump.stays_active;
     if (mp.was_active && focus) app.on_window_activate(1);
     if (out) out->set_focused(focus);
@@ -1446,7 +1470,10 @@ rekit::sdl::MenuHooks menu_hooks(const Args& a, mech3::Mech3App& app, mech3::Gam
                 ztimer::state().total_scaled - mp.scaled_at_open);
     input.refresh();
   };
-  h.title = "Pirate's Moon", h.version = MW3_VERSION;
+  // Another program on this main (sdlfe::program_name, MW1's mw1_main.cpp) names the menu, its report page and its
+  // releases; unset, Pirate's Moon's.
+  const sdlfe::ProgramName& named = sdlfe::program_name();
+  h.title = named.id.empty() ? "Pirate's Moon" : named.title, h.version = named.id.empty() ? MW3_VERSION : named.version;
   h.user_folder = a.write_dir;
   h.log_file = a.write_dir.empty() ? std::string() : (std::filesystem::path(a.write_dir) / "mw3.log").string();
   {
@@ -1456,26 +1483,30 @@ rekit::sdl::MenuHooks menu_hooks(const Args& a, mech3::Mech3App& app, mech3::Gam
   // A fallback only: assets/setup-kit-settings.json, shipped beside the program (program_dir), names the report page
   // and the catalogs, and wins, as do the signed catalog's live values and a player's copy in the write dir
   // (rekit/settings.h; docs/in-game-menu.md, The kit's settings file). The keys stay compiled in, below.
-  h.report_url = "https://github.com/telltaleatheist/mech3-pm-re/issues";
+  h.report_url = named.report_url.empty() ? "https://github.com/telltaleatheist/mech3-pm-re/issues" : named.report_url;
   h.install = sdlfe::install_kind();
   h.program_dir = sdlfe::program_dir();
   // Pirate's Moon's install is read only: everything it writes goes to the write dir (zutl::open; the movie import
   // and the disc's sounds too), so no file of the install is rewritten (MenuHooks::rewritten stays empty).
   h.check_game_files = [install = h.files_in_use, wd = a.write_dir] { return mech3::setup::pm_own_check(install, wd); };
-  h.restart_for_setup = [&pump] {
-    sdlfe::RestartTo to;
-    to.choose_files = true;
-    sdlfe::restart_ask(to);
-    pump.post_quit();  // closed as the window's close button does, then started again on the find screen
-  };
+  h.files_note = named.files_note;  // (shown only without CHANGE)
+  if (named.change_files)
+    h.restart_for_setup = [&pump] {
+      sdlfe::RestartTo to;
+      to.choose_files = true;
+      sdlfe::restart_ask(to);
+      pump.post_quit();  // closed as the window's close button does, then started again on the find screen
+    };
   if (!a.write_dir.empty()) {
     const std::filesystem::path wd(a.write_dir);
     h.settings = {(wd / "settings.reg").string(), (wd / "mw3.cfg").string(), (wd / "keys").string()};
+    for (const std::string& p : named.settings) h.settings.push_back((wd / p).string());
     h.reset_settings = [&engine, wd = a.write_dir] {
       std::string why;
-      const bool ok = upgrades::reset::options_and_controls(engine, &why);
+      bool ok = upgrades::reset::options_and_controls(engine, &why);
       for (const std::string& k : upgrades::reset::config_keys()) sdlfe::remove_config_value(wd, k);
       upgrades::reset::config_defaults();
+      if (const auto& own = sdlfe::program_name().reset_own) ok = own() && ok;  // MW1's own (its SETTINGS' defaults)
       std::printf("mw3: menu: settings reset to their defaults%s%s\n", ok ? "" : ": ", why.c_str());
       return ok;
     };
@@ -1488,16 +1519,24 @@ rekit::sdl::MenuHooks menu_hooks(const Args& a, mech3::Mech3App& app, mech3::Gam
   // (DIR/catalog.json, signed by MW3_UPDATE_KEY), and only DIR/install replaced.
   // A development build (no package) has no update source: it cannot be updated, so it never checks or prompts.
   const char* world = SDL_getenv("MW3_UPDATE_WORLD");
-  if (h.install != rekit::InstallKind::kDevelopment || (world && *world))
+  if (h.install != rekit::InstallKind::kDevelopment || (world && *world)) {
     h.update.recipe = {"pm", "mech3-pm-re", "pm-v", MW3_VERSION, sdlfe::update_file(h.install)};  // the catalog's "pm"
+    if (!named.update_key.empty()) {
+      const bool setup = h.install == rekit::InstallKind::kWindowsSetupUser || h.install == rekit::InstallKind::kWindowsSetupMachine;
+      h.update.recipe = {named.update_key, named.update_repo, named.update_tag_prefix, named.version,
+                         setup && !named.update_file_setup.empty() ? named.update_file_setup : named.update_file};
+    }
+  }
   // The catalogs: a fallback too, for a copy without the settings file (it wins; never with MW3_UPDATE_WORLD's file://).
   h.update.catalogs = {"https://reverse-engineered.com/launcher/catalog.json",
                        "https://raw.githubusercontent.com/telltaleatheist/mw3-re/main/catalog/games.json",
                        "https://git.owenmorgan.com/telltaleatheist/mw3-re/raw/branch/main/catalog/games.json"};
   h.update.keys = {"4e2d26a76ab9f92876ca86aa915b9d61de1ed93b854610be07c70179136bfced"};
-  if (!a.write_dir.empty())
+  if (!a.write_dir.empty()) {
     for (const char* p : {"pilots", "settings.reg", "mw3.cfg", "keys"})
       h.update.keep.push_back((std::filesystem::path(a.write_dir) / p).string());
+    for (const std::string& p : named.keep) h.update.keep.push_back((std::filesystem::path(a.write_dir) / p).string());
+  }
   h.update.restart_args = sdlfe::restart_args(g_start_args, sdlfe::RestartTo{});
   if (world && *world) {
     const std::filesystem::path w(world);
@@ -1505,7 +1544,7 @@ rekit::sdl::MenuHooks menu_hooks(const Args& a, mech3::Mech3App& app, mech3::Gam
     const char* key = SDL_getenv("MW3_UPDATE_KEY");
     h.update.keys = {key ? key : ""};
     h.update.temp = (w / "temp").string();
-    h.update.target = (w / "install").string(), h.update.marker = "mw3pm";
+    h.update.target = (w / "install").string(), h.update.marker = named.id.empty() ? "mw3pm" : named.id;
     h.update.allow_file = true, h.update.no_restart = true;
   }
   h.quit = [&pump] { pump.post_quit(); };  // as the window's close button: the game's own way out
@@ -1566,7 +1605,7 @@ void menu_pass(MenuPause& mp, rekit::sdl::GameMenu& menu, mech3::Mech3App& app, 
       if (p) p->on_button(mech3::PauseScreen::kOptions, 0, 0), mp.upgrades_step = 2;
     } else if (mp.upgrades_step == 2 && app.current() != &pause) {
       mp.upgrades_step = 0;
-      if (const zgame::Handle u = mech3::options_upgrades_state()) engine.push_state(u, 0);
+      push_upgrades(engine);
     } else if (app.current() != &pause && app.current() != &mech3::states().core) {
       mp.upgrades_step = 0;  // the mission left meanwhile
     }

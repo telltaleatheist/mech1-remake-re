@@ -32,6 +32,11 @@ $game = Get-ChildItem -LiteralPath $Dist -Recurse -File |
 foreach ($f in 'mw1.exe', 'mw1data\zbd\mw1image.zbd', 'README.txt', 'THIRD-PARTY.txt', 'THIRD-PARTY-MW1.txt') {
   if (-not (Test-Path -LiteralPath (Join-Path $Dist $f))) { $missing += "$f (the package's own)" }
 }
+# The setup kit's settings file beside mw1.exe (its program_dir; rekit/settings.h), and the record of the folder's files
+# (the in-game menu's CHECK MY FILES), which package.cmd writes before this check.
+if (-not (Test-Path -LiteralPath (Join-Path $Dist 'setup-kit-settings.json'))) { $missing += 'setup-kit-settings.json (the setup kit''s settings, beside mw1.exe)' }
+if (-not (Test-Path -LiteralPath (Join-Path $Dist 'badge_mw1.png'))) { $missing += 'badge_mw1.png (the in-game menu''s medallion, beside mw1.exe)' }
+if (-not (Test-Path -LiteralPath (Join-Path $Dist 'rebuild-files.sha256'))) { $missing += 'rebuild-files.sha256 (the record of the files, for CHECK MY FILES)' }
 # The find screen's document, styles, fonts and pictures: without the document it cannot be drawn (launcher_ui.cpp).
 foreach ($f in 'ui\launcher.rml', 'ui\launcher.rcss', 'font.ttf', 'font_body.ttf', 'badge_pm.png', 'bg_metal.png', 'bg_stars.png', 'emblem.png') {
   if (-not (Test-Path -LiteralPath (Join-Path $Dist "assets\launcher\$f"))) { $missing += "assets\launcher\$f (the find screen)" }
