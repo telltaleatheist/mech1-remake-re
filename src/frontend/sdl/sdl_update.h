@@ -90,8 +90,14 @@ bool start_detached(const std::string& program);
 // uninstaller beside the program (for every user under Program Files, else this user's), else an unpacked folder; a
 // build that is not a player's package (MW3_PACKAGE off) is a development one. MW3_INSTALL_KIND names one in checks.
 rekit::InstallKind install_kind();
-// The top of this program's package, where its rebuild-files.sha256 is (tools/files_manifest.py at packaging): the
-// Mac app's Contents, the AppImage's mounted folder ($APPDIR), else the program's own folder. "" when unknown.
+// The release file an install of this kind updates from (the in-game menu's UPDATES, rekit/sdl/update.h's
+// UpdateRecipe::file, "{tag}" for the tag): MechWarrior 3's own download, MW3-alone (the launcher's catalog names the
+// same). Windows' Setup installs take the new Setup, an unpacked Windows folder the zip, the Mac the disk image, Linux
+// the AppImage (it has no folder package: an unpacked Linux folder is offered the AppImage's release page).
+std::string update_file(rekit::InstallKind kind);
+// Where this program's package keeps its rebuild-files.sha256 (tools/files_manifest.py at packaging), the folder it
+// covers: the Mac app's Contents/Resources (the app's signature seals the rest), the AppImage's mounted folder
+// ($APPDIR), else the program's own folder. "" when unknown.
 std::string program_dir();
 
 // A program run to its end, its arguments as an array: its exit code (-1 not

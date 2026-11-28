@@ -8,6 +8,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <functional>
 #include <cctype>
 #include <cmath>
@@ -7560,7 +7561,8 @@ TEST(sdl_program_launcher_finds_the_game_then_plays) {
   // with nothing started, so Pirate's Moon can be added first; the notes' OK goes back to them too.
   auto stay = pick;
   stay.push_back({"MW3_LAUNCHER_NO_PLAY", "1"});
-  stay[2].second = "120";  // MW3_LAUNCHER_FRAMES: about 2 s on the games, then QUIT
+  // MW3_LAUNCHER_FRAMES: pick's own 1800, as the install takes them (its record of the files hashes all 700 MB) before
+  // the notes and the games; then QUIT.
   const LauncherRun w = run_launcher_with("launcher_v1_w13_stays", "READY\nsleep 2", nullptr, stay);
   const size_t notes = w.log.find("screen notes:");
   const size_t main_after = notes == std::string::npos ? notes : w.log.find("screen main: MECHWARRIOR 3", notes);
@@ -11149,7 +11151,7 @@ TEST(sdl_program_valve_map_c1m1_and_c1m3) {
   EXPECT(has(strider, "aiv.zrd `strider_01` vlist #1: to 1 when health <= 0 (items 5, 6)"));
   EXPECT(has(strider, "valves.zrd: [cross_river](#v-cross-river)'s condition (any member nonzero)"));
   // The page committed in the repository is this tool's (regenerate it, never edit it by hand).
-  const fs::path repo = fs::path(install).parent_path().parent_path();
+  const fs::path repo = fs::path(__FILE__).parent_path().parent_path();  // this checkout (MW3_GAME_DIR may be another's)
   std::ifstream c(repo / "docs/valves/c1m1.md", std::ios::binary);
   const std::string committed((std::istreambuf_iterator<char>(c)), std::istreambuf_iterator<char>());
   std::printf("  docs/valves/c1m1.md as made: %d\n", committed == m1);
@@ -11243,6 +11245,7 @@ TEST(sdl_program_issue19_menu_sounds) {
 }
 #endif
 
+#if !defined(_WIN32)  // the in-game menu's runs: posix_spawn, setenv, waitpid (ours, not on Windows)
 // The setup menu inside the game (kit step 5; rekit/sdl/game_menu.h, docs/in-game-menu.md): opened over MechWarrior
 // 3's own frames by the checks' MW3_MENU_AT (mw3_main.cpp, MenuPause), keys pressed in it, a shot of it, then closed.
 namespace ingame {
@@ -11251,12 +11254,20 @@ std::string read(const std::string& path) {
   return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
 }
 bool in(const std::string& text, const std::string& what) { return text.find(what) != std::string::npos; }
-// mw3 with `args`, the env's pairs set for the run; its log, and its exit in *code (-1: did not end).
+const std::string kUnset = "\x01unset";  // run's env: the variable taken away for the run
+// mw3 with `args`, the env's pairs set (or kUnset: unset) for the run and put back after; its log, and its exit in
+// *code (-1: did not end).
 std::string run(const std::string& log, const std::vector<std::string>& args,
                 const std::vector<std::pair<const char*, std::string>>& env, int* code, int seconds = 240) {
-  for (const auto& [k, v] : env) setenv(k, v.c_str(), 1);
+  std::vector<std::pair<const char*, std::optional<std::string>>> was;
+  for (const auto& [k, v] : env) {
+    const char* old = std::getenv(k);
+    was.push_back({k, old ? std::optional<std::string>(old) : std::nullopt});
+    if (v == kUnset) unsetenv(k);
+    else setenv(k, v.c_str(), 1);
+  }
   const pid_t pid = spawn_mw3(args, log);
-  for (const auto& [k, v] : env) unsetenv(k);
+  for (const auto& [k, v] : was) v ? (void)setenv(k, v->c_str(), 1) : (void)unsetenv(k);
   int status = 0;
   *code = waited(pid, &status, seconds) && WIFEXITED(status) ? WEXITSTATUS(status) : -1;
   return read(log);
@@ -11282,6 +11293,17 @@ bool menu_in_shot(const std::string& path) {
   const int r = static_cast<int>(p >> 16 & 0xff), g = static_cast<int>(p >> 8 & 0xff), b = static_cast<int>(p & 0xff);
   std::printf("  %s at the panel: %06lx\n", path.substr(path.rfind('/') + 1).c_str(), p);
   return p >= 0 && std::abs(r - 20) <= 6 && std::abs(g - 25) <= 6 && std::abs(b - 32) <= 6;
+}
+// MW3_MENU_SHOTS_TO=DIR: the test's shots copied there before its folder goes (to look at them).
+void keep_shots(const std::string& dir) {
+  const char* to = std::getenv("MW3_MENU_SHOTS_TO");
+  if (!to || !*to) return;
+  std::error_code ec;
+  std::filesystem::create_directories(to, ec);
+  for (const auto& f : std::filesystem::directory_iterator(dir, ec))
+    if (f.path().extension() == ".bmp")
+      std::filesystem::copy_file(f.path(), std::filesystem::path(to) / (std::filesystem::path(dir).filename().string() + "-" + f.path().filename().string()),
+                                 std::filesystem::copy_options::overwrite_existing, ec);
 }
 // The number after `what` in the log ("" when it is not there: NaN).
 double after(const std::string& log, const std::string& what) {
@@ -11405,3 +11427,125 @@ TEST(sdl_menu_in_game_change_restarts_to_choose) {
   EXPECT((first == V{"--write-dir", "w", "--windowed", "-nofmv", "--choose-files", "--restarted"}));
   EXPECT((sdlfe::restart_args(first, sdlfe::RestartTo{}) == V{"--write-dir", "w", "--windowed", "-nofmv", "--restarted"}));
 }
+
+// UPDATES on the kit's engine (docs/in-game-menu.md, UPDATES): a stand-in world of file:/// addresses, a catalog and
+// a MechWarrior 3 v9.9.0 release whose SHA256SUMS is signed with the kit's test key 1 (MW3_UPDATE_WORLD), only its
+// DIR/install replaceable (an unpacked folder, MW3_INSTALL_KIND=folder).
+namespace ingame {
+std::string make_update_world(const std::string& root) {
+  namespace fs = std::filesystem;
+  std::error_code ec;
+  fs::remove_all(root, ec);
+  auto put = [](const fs::path& p, const std::string& text) {
+    fs::create_directories(p.parent_path());
+    std::ofstream(p, std::ios::binary) << text;
+  };
+  auto url = [](const fs::path& p) { return "file://" + p.generic_string(); };
+  const fs::path r(root);
+  const std::string cat = "{\"catalog\": 1, \"counts\": \"\", \"homes\": [{\"key\": \"github\", \"releases\": \"" +
+                          url(r / "github" / "{repo}.json") + "\", \"order\": 1}], \"games\": []}";
+  put(r / "catalog.json", cat), put(r / "catalog.json.sig", test_keys::sign(cat, 1));
+  // The release's file by its own name (as the packaging names it), so a wrong name in update_file is caught.
+#if defined(_WIN32)
+  const std::string named = "MW3-alone-v9.9.0-win64.zip";
+#elif defined(__APPLE__)
+  const std::string named = "MW3-alone-v9.9.0-mac.dmg";
+#else
+  const std::string named = "MW3-alone-v9.9.0-x86_64.AppImage";
+#endif
+  const std::string payload = "the new MechWarrior 3", sums = rekit::sha256_hex(reinterpret_cast<const uint8_t*>(payload.data()), payload.size()) + "  " + named + "\n";
+  const fs::path d = r / "github" / "v9.9.0";
+  put(d / named, payload), put(d / "SHA256SUMS", sums), put(d / "SHA256SUMS.sig", test_keys::sign(sums, 1));
+  std::string assets;
+  for (const std::string& f : {named, std::string("SHA256SUMS"), std::string("SHA256SUMS.sig")})
+    assets += std::string(assets.empty() ? "" : ",") + "{\"name\": \"" + f + "\", \"size\": " + std::to_string(fs::file_size(d / f)) +
+              ", \"browser_download_url\": \"" + url(d / f) + "\"}";
+  put(r / "github" / "mech3-re.json", "[{\"tag_name\": \"v9.9.0\", \"body\": \"## Fixes\\n- The stand-in's one note.\", "
+                                      "\"html_url\": \"https://example.org/v9.9.0\", \"assets\": [" + assets + "]}]");
+  put(r / "install" / "mw3", "the installed program");
+  return test_keys::public_key(1);
+}
+}  // namespace ingame
+
+// Started alone (no RE_LAUNCHER, not a kit test run): the kit's start-up check finds v9.9.0 and its prompt opens over
+// the main menu, the game held; the prompt's UPDATE NOW reaches the page's close question (CLOSE AND UPDATE), which
+// is left unanswered, so nothing is downloaded or replaced.
+TEST(sdl_menu_in_game_update_prompt_when_started_alone) {
+  if (!have_fonts()) return;
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/sdl_menu_in_game_update_alone", wd = dir + "/wd";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(wd);
+  const std::string key = ingame::make_update_world(dir + "/world");
+  int code = 0;
+  const std::string log = ingame::run(
+      dir + "/run.log", {"--write-dir", wd, "--frames", "200", "-nofmv", "--hidden", "--nosound"},
+      {{"RE_KIT_TEST", ingame::kUnset}, {"RE_LAUNCHER", ingame::kUnset}, {"MW3_UPDATE_WORLD", dir + "/world"}, {"MW3_UPDATE_KEY", key},
+       {"MW3_INSTALL_KIND", "folder"}, {"MW3_MENU_KEYS", "e@30"},
+       {"MW3_MENU_SHOT", dir + "/prompt.bmp@20;" + dir + "/close.bmp@45"}, {"MW3_MENU_CLOSE", "1"}},
+      &code);
+  std::printf("  exit %d, prompt %d, update now %d, held %d\n", code, ingame::in(log, "mw3: menu: the update prompt: MechWarrior 3 9.9.0"),
+              ingame::in(log, "mw3: menu: the update prompt: UPDATE NOW"), ingame::in(log, "mw3: menu: the game resumed: 0 game frames"));
+  EXPECT(code == 0);
+  EXPECT(ingame::in(log, "mw3: menu: the update prompt: MechWarrior 3 9.9.0"));
+  EXPECT(ingame::in(log, "mw3: menu: the update prompt: UPDATE NOW") && !ingame::in(log, "mw3: menu: UPDATE NOW:"));
+  EXPECT(ingame::in(log, "mw3: menu: the game resumed: 0 game frames"));
+  EXPECT(ingame::read(dir + "/world/install/mw3") == "the installed program" && !fs::exists(wd + "/Backups"));
+  EXPECT(fs::file_size(dir + "/prompt.bmp", ec) > 1000000 && fs::file_size(dir + "/close.bmp", ec) > 1000000);
+  ingame::keep_shots(dir);
+  fs::remove_all(dir, ec);
+}
+
+// Started by the launcher (RE_LAUNCHER): no prompt of the game's own (the launcher updates it). The UPDATES page's
+// CHECK NOW finds v9.9.0 and shows it with its notes.
+TEST(sdl_menu_in_game_update_page_under_the_launcher) {
+  if (!have_fonts()) return;
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/sdl_menu_in_game_update_launcher", wd = dir + "/wd";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(wd);
+  const std::string key = ingame::make_update_world(dir + "/world");
+  int code = 0;
+  const std::string log = ingame::run(
+      dir + "/run.log", {"--write-dir", wd, "--frames", "200", "-nofmv", "--hidden", "--nosound"},
+      {{"RE_KIT_TEST", ingame::kUnset}, {"RE_LAUNCHER", "2.2.0"}, {"MW3_UPDATE_WORLD", dir + "/world"}, {"MW3_UPDATE_KEY", key},
+       {"MW3_INSTALL_KIND", "folder"}, {"MW3_MENU_AT", "90:drde"}, {"MW3_MENU_SHOT", dir + "/page.bmp@150"}, {"MW3_MENU_CLOSE", "1"}},
+      &code);
+  const size_t checked = log.find("mw3: menu: checked: ");
+  const std::string said = checked == std::string::npos ? "" : log.substr(checked, log.find('\n', checked) - checked);
+  std::printf("  exit %d, [%s], prompt %d\n", code, said.c_str(), ingame::in(log, "update prompt"));
+  EXPECT(code == 0);
+  EXPECT(!ingame::in(log, "the update prompt"));
+  EXPECT(ingame::in(log, "mw3: menu: CHECK NOW") && ingame::in(said, "9.9.0"));
+  EXPECT(fs::file_size(dir + "/page.bmp", ec) > 1000000);
+  ingame::keep_shots(dir);
+  fs::remove_all(dir, ec);
+}
+
+// UPGRADES where the game has no way to it yet (its first frame, before the main menu's options page exists): the entry
+// dimmed with its note, and Enter on it leaves the menu open with nothing pushed.
+TEST(sdl_menu_in_game_upgrades_unavailable_at_the_start) {
+  if (!have_fonts()) return;
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/sdl_menu_in_game_upgrades_unavailable", wd = dir + "/wd";  // (the start)
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(wd);
+  int code = 0;
+  const std::string log = ingame::run(
+      dir + "/run.log", {"-nofmv", "--frames", "60", "--nosound", "--hidden", "--write-dir", wd},
+      {{"RE_KIT_TEST", "1"}, {"MW3_MENU_AT", "1:dddddde"}, {"MW3_MENU_SHOT", dir + "/menu.bmp@10"}, {"MW3_MENU_CLOSE", "1"}},
+      &code, 300);
+  std::printf("  exit %d, not available %d, picked %d\n", code,
+              ingame::in(log, "mw3: menu: the game's UPGRADES is not available: In the main menu or a mission"),
+              ingame::in(log, "mw3: menu: UPGRADES:"));
+  EXPECT(code == 0);
+  EXPECT(ingame::in(log, "mw3: menu: the game's UPGRADES is not available: In the main menu or a mission"));
+  EXPECT(!ingame::in(log, "mw3: menu: UPGRADES:") && !ingame::in(log, "mw3: menu: the game's UPGRADES\n"));
+  EXPECT(ingame::menu_in_shot(dir + "/menu.bmp"));
+  ingame::keep_shots(dir);
+  fs::remove_all(dir, ec);
+}
+#endif  // !_WIN32 (the in-game menu)

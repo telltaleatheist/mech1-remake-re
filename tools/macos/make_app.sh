@@ -297,14 +297,16 @@ fi
 # Signing (the kit's script): every Mach-O inside first (the libraries; the game and the importer, second programs
 # in Contents/MacOS), then the app that seals them. tools/macos/mw3.entitlements grants nothing: the app needs no
 # exception.
-# The record of the app's files for the in-game menu's CHECK MY FILES (the kit's tools/files_manifest.py, at
-# Contents/rebuild-files.sha256: the games' program_dir), written before signing so the app's seal covers it. Every
-# Mach-O is left out: codesign rewrites each one (its signature is in the file), and the seal checks those already.
+# The record of the app's files for the in-game menu's CHECK MY FILES (the kit's tools/files_manifest.py), at
+# Contents/Resources/rebuild-files.sha256 (the games' program_dir) and covering Resources only: codesign refuses a
+# plain file at the top of Contents ("code object is not signed at all"), and the app's signature already seals
+# Info.plist and the Mach-Os (codesign rewrites each one, so a record could never match them). Written before signing
+# so the seal covers it; any Mach-O in Resources is left out too.
 LEAVE=()
 while IFS= read -r -d '' f; do
   [[ "$(file -b "$f")" == Mach-O* ]] && LEAVE+=(--leave-out "$(basename "$f")")
-done < <(find "$APP/Contents" -type f -print0)
-python3 -I extern/re-setup-kit/tools/files_manifest.py "$APP/Contents" "${LEAVE[@]}" || exit 1
+done < <(find "$APP/Contents/Resources" -type f -print0)
+python3 -I extern/re-setup-kit/tools/files_manifest.py "$APP/Contents/Resources" ${LEAVE[@]+"${LEAVE[@]}"} || exit 1  # bash 3.2: an empty array is unbound under set -u
 ENTS=(--entitlements tools/macos/mw3.entitlements)
 for p in mw3 mw3import mw3pm mw1; do
   if [ -f "$APP/Contents/MacOS/$p" ]; then ENTS+=(--entitlements-for "Contents/MacOS/$p" tools/macos/mw3.entitlements); fi

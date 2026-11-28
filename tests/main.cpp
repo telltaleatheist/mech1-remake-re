@@ -13,6 +13,7 @@
 #if defined(_WIN32)
 #include <process.h>
 #endif
+#include <utility>
 #include <filesystem>
 #include <string>
 #include <cstdio>
@@ -93,6 +94,17 @@ int main() {
   setenv("MW3_POINTER_HANDS_OFF", "1", 1);
   setenv("SDL_MAC_BACKGROUND_APP", "1", 1);
 #endif
+  // The setup kit's test mode (RE_KIT_TEST=1) and SDL's dummy audio driver for every test and every program a test
+  // starts, unless already set: no update check goes online and no prompt holds the game, the menu's hint and keys
+  // are off, and nothing plays through the speakers. A test that wants the kit's own behavior unsets it for its run.
+  for (const auto& [k, v] : {std::pair<const char*, const char*>{"RE_KIT_TEST", "1"}, {"SDL_AUDIO_DRIVER", "dummy"}})
+    if (!std::getenv(k)) {
+#if defined(_WIN32)
+      _putenv_s(k, v);
+#else
+      setenv(k, v, 0);
+#endif
+    }
 #if defined(_WIN32)
   // No crash dialogs: a test that crashes exits (the run is often headless, over ssh).
   SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOGPFAULTERRORBOX);

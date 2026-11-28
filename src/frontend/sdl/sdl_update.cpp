@@ -441,10 +441,23 @@ rekit::InstallKind install_kind() {
 #endif
 }
 
+std::string update_file(rekit::InstallKind kind) {
+#if defined(_WIN32)
+  if (kind == rekit::InstallKind::kWindowsSetupUser || kind == rekit::InstallKind::kWindowsSetupMachine) return "MW3-alone-Setup-{tag}.exe";
+  return "MW3-alone-{tag}-win64.zip";
+#elif defined(__APPLE__)
+  (void)kind;
+  return "MW3-alone-{tag}-mac.dmg";
+#else
+  (void)kind;
+  return "MW3-alone-{tag}-x86_64.AppImage";
+#endif
+}
+
 std::string program_dir() {
 #if defined(__APPLE__)
   const std::string app = running_package();
-  if (!app.empty()) return (fs::path(app) / "Contents").string();
+  if (!app.empty()) return (fs::path(app) / "Contents" / "Resources").string();  // the signature seals the rest
 #elif !defined(_WIN32)
   if (const char* d = std::getenv("APPDIR"); d && std::getenv("APPIMAGE")) return d;
 #endif
