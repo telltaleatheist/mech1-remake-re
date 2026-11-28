@@ -70,6 +70,8 @@
 #include "frontend/sdl/vulkan_check.h"
 #include "frontend/sdl/campaign_chain.h"
 #include "frontend/sdl/editor_imgui.h"
+#include "rekit/sdl/game_menu.h"
+#include "upgrades/settings/reset.h"
 #include "frontend/sdl/modes_chain.h"
 #include "frontend/sdl/debug_states.h"
 #include "frontend/sdl/first_run_import.h"
@@ -107,7 +109,11 @@
 #include "upgrades/settings/upgrades.h"
 #include "mech3/game_editor.h"
 #include "mech3/mp_connect.h"
+#include "mech3/options.h"
+#include "mech3/pause_menu.h"
 #include "mech3/options_menu.h"
+#include "gamez/zutil/ztimer.h"
+#include "frontend/sdl/sdl_update.h"
 #include "mech3/game_setup.h"
 #include "mech3/source_map.h"
 #include "frontend/sdl/sdl_force.h"
@@ -251,6 +257,7 @@ struct Args {
   std::string patch;          // --patch PATH (ours, patch_import.h): the official 1.2 patch into the write dir's overlay
   std::string install_from, install_to;  // --install-from PATH, --install-to DIR (ours, disc_install.h)
   bool windowed = false;      // --windowed (or windowed=1 in mw3.cfg): not fullscreen
+  bool choose_files = false;  // --choose-files (ours): the find screen first, then the game (the in-game menu's CHANGE)
   bool window_given = false;  // --window: kept, the frame pillarboxed in it (else the frame's shape)
   std::string chain;          // --campaign-chain new:N / resume:N (ours, campaign_chain.h)
   std::string modes;          // --action-chain all / c2 / c2:4 (ours, modes_chain.h)
@@ -466,6 +473,7 @@ bool parse(int argc, char** argv, Args& a) {
     else if (s == "--windowed") a.windowed = true;
     else if (s == "--no-import") a.no_import = true;
     else if (s == "--no-launcher") a.no_launcher = true;
+    else if (s == "--choose-files") a.choose_files = true;
     else if (s == "--launcher-shot" && next(1)) a.launcher_shot = argv[++i];
     else if (s == "--launcher-screen" && next(1)) a.launcher_screen = argv[++i];
     else if (s == "--status") a.status = true;
@@ -1093,10 +1101,11 @@ int program(int argc, char** argv) {
   if (!a.ready_file.empty()) sdlfe::set_ready_file(a.ready_file);
   mech3::mods_other_game() = {a.other_write_dir, a.other_install};  // W15: a mod for the other game goes there
   // Shift held at the start (ours, 2026-11-21): the find screen, to choose other game files without a terminal.
-  const bool choose_again = player_start && !a.no_launcher && !a.setup && sdlfe::shift_held_now();
+  const bool choose_again = !a.no_launcher && !a.setup && (a.choose_files || (player_start && sdlfe::shift_held_now()));
   if (choose_again) {
     setup_only = true;
-    std::printf("mw3: Shift held at the start: the find screen, to choose the game files\n");
+    std::printf("mw3: %s: the find screen, to choose the game files\n",
+                a.choose_files ? "the setup menu's CHANGE (--choose-files)" : "Shift held at the start");
   }
   if (player_start && !a.no_launcher && !a.setup && !choose_again) {
     // The copy the launcher's panel shows (mw3_status_find, as find_install). Offered by the status (a find of the
@@ -1285,6 +1294,176 @@ int program(int argc, char** argv) {
 }  // namespace
 
 namespace {
+
+// --- The setup menu inside the game (ours; rekit/sdl/game_menu.h, docs/in-game-menu.md) ---
+
+// Its pause: the original's own, the frame window's deactivation (0x00590c00), as when the window loses the focus
+// (the game editor's Pause box is its half, 0x0058fa80): no state updates, so nothing moves and nothing catches up;
+// the game's sounds silent as when the window is away. Held while the menu is up (the focus coming back does not
+// wake it); the menu's closing gives back what the focus then says.
+struct MenuPause {
+  rekit::sdl::GameMenu* menu = nullptr;
+  bool held = false, was_active = false;
+  uint32_t idle_ms = 100;
+  uint64_t last_present_ms = 0;
+  int game_frames = 0;           // presents the game made (none while held, but in a network game)
+  int upgrades_step = 0;  // UPGRADES in a mission, as a player goes: 1 the pause screen up, 2 its OPTIONS pressed, then the page
+  // Checks (MW3_MENU_AT=N[:keys], MW3_MENU_SHOT=PATH, MW3_MENU_SHOT_AFTER=F, MW3_MENU_CLOSE=1): opened at the game's
+  // Nth frame, `keys` pressed in it (d u l r: the arrows, e: Enter), a capture after F frames of the menu (10), then
+  // closed; the clock said at both ends.
+  int open_at = 0, menu_frames = 0, shot_after = 10;
+  bool in_mission = false;  // MW3_MENU_IN_MISSION=1: N counts the frames of a campaign mission (the core state), not the run's
+  int mission_frames = 0;
+  bool say_next_dt = false;  // the first frame after the menu: its step said (the time away is not caught up)
+  std::string keys;
+  std::string shot;
+  bool close_after = false, shot_taken = false;
+  int frames_at_open = 0;
+  float mission_time_at_open = 0, scaled_at_open = 0;
+};
+
+rekit::sdl::Theme menu_theme() {
+  rekit::sdl::Theme t;
+  t.header = "MECHWARRIOR 3";
+  return t;
+}
+
+// UPGRADES: MechWarrior 3's own Upgrades page (the options' UPGRADES, options_menu.h). In the menus it is pushed
+// over the screen there; in a mission the way a player reaches it, the pause screen's OPTIONS then UPGRADES (the
+// page is made there), so its BACK returns to the options and then the pause screen's RESUME.
+void open_upgrades(MenuPause& mp, mech3::Mech3App& app, mech3::GameEngine& engine) {
+  zgame::State* cur = app.current();
+  if (cur == &mech3::states().core) {
+    mp.upgrades_step = 1;
+    app.push(app.state(3), 0);
+    std::printf("mw3: menu: UPGRADES: the pause screen, then its Upgrades page\n");
+    return;
+  }
+  if (const zgame::Handle u = mech3::options_upgrades_state(); u && app.pending() == 0) {
+    engine.push_state(u, 0);
+    std::printf("mw3: menu: UPGRADES: the Upgrades page\n");
+    return;
+  }
+  int at = -1;
+  for (int i = 0; i <= 10; ++i)
+    if (app.state(i) == cur) at = i;
+  std::printf("mw3: menu: UPGRADES: not here (state %d, %d pending; the main menu's options or a mission's pause have it)\n",
+              at, app.pending());
+}
+
+rekit::sdl::MenuHooks menu_hooks(const Args& a, mech3::Mech3App& app, mech3::GameEngine& engine, sdlfe::SdlWindow& window,
+                                 sdlfe::SdlInput& input, platform::SoundOutput* sound, sdlfe::SdlPump& pump,
+                                 sdlfe::EditorUi& editor_ui, MenuPause& mp) {
+  rekit::sdl::MenuHooks h;
+  h.window = window.sdl();
+  h.draw = [&window](const rekit::sdl::MenuImage& im) {
+    if (sdlfe::SdlRender3D* r = window.render()) r->set_layer(im.pixels, im.w, im.h, im.pitch, im.serial);
+  };
+  h.deliver = [&input, &editor_ui](const SDL_Event& e) {
+    if (!editor_ui.event(e)) input.on_event(e);
+  };
+  auto* out = dynamic_cast<sdlfe::SdlSoundOutput*>(sound);
+  h.pause = [&mp, &app, &input, &engine, out] {
+    mp.held = true, mp.was_active = app.active();
+    if (mp.was_active) app.on_window_activate(0);
+    if (out) out->set_focused(false);
+    mp.idle_ms = app.idle_wait_ms_, app.idle_wait_ms_ = 16;
+    mp.frames_at_open = mp.game_frames, mp.mission_time_at_open = engine.mission_time();
+    mp.scaled_at_open = ztimer::state().total_scaled;
+    input.refresh();
+  };
+  h.resume = [&mp, &app, &input, &engine, &pump, out] {
+    mp.held = false, app.idle_wait_ms_ = mp.idle_ms, mp.say_next_dt = true;
+    const bool focus = input.focused() || pump.stays_active;
+    if (mp.was_active && focus) app.on_window_activate(1);
+    if (out) out->set_focused(focus);
+    std::printf("mw3: menu: the game resumed: %d game frames and %.3f s of mission time while it was up (mission time "
+                "%.3f s; the timer's total %.3f s on)\n", mp.game_frames - mp.frames_at_open,
+                engine.mission_time() - mp.mission_time_at_open, engine.mission_time(),
+                ztimer::state().total_scaled - mp.scaled_at_open);
+    input.refresh();
+  };
+  h.title = "MechWarrior 3", h.version = MW3_VERSION;
+  h.user_folder = a.write_dir;
+  h.log_file = a.write_dir.empty() ? std::string() : (std::filesystem::path(a.write_dir) / "mw3.log").string();
+  {
+    std::error_code ec;
+    h.files_in_use = a.install.empty() ? std::string() : std::filesystem::absolute(a.install, ec).lexically_normal().string();
+  }
+  h.report_url = "https://github.com/telltaleatheist/mech3-re/issues";
+  h.install = sdlfe::install_kind();
+  h.program_dir = sdlfe::program_dir();
+  // MechWarrior 3's install is read only: everything it writes goes to the write dir (zutl::open), so no file of
+  // the install is rewritten (MenuHooks::rewritten stays empty).
+  h.check_game_files = [install = h.files_in_use, wd = a.write_dir] { return mech3::setup::own_check(install, wd); };
+  h.restart_for_setup = [&pump] {
+    sdlfe::RestartTo to;
+    to.choose_files = true;
+    sdlfe::restart_ask(to);
+    pump.post_quit();  // closed as the window's close button does, then started again on the find screen
+  };
+  if (!a.write_dir.empty()) {
+    const std::filesystem::path wd(a.write_dir);
+    h.settings = {(wd / "settings.reg").string(), (wd / "mw3.cfg").string(), (wd / "keys").string()};
+    h.reset_settings = [&engine, wd = a.write_dir] {
+      std::string why;
+      const bool ok = upgrades::reset::options_and_controls(engine, &why);
+      for (const std::string& k : upgrades::reset::config_keys()) sdlfe::remove_config_value(wd, k);
+      upgrades::reset::config_defaults();
+      std::printf("mw3: menu: settings reset to their defaults%s%s\n", ok ? "" : ": ", why.c_str());
+      return ok;
+    };
+  }
+  h.entries.push_back({"UPGRADES", [&mp, &app, &engine] { open_upgrades(mp, app, engine); }});
+  h.log = [](const std::string& line) { std::printf("mw3: %s\n", line.c_str()); };
+  return h;
+}
+
+// Each pass of the app's loop: the checks' opening, the pause screen's Upgrades page once it is up, and the frame
+// shown again under the menu while the game is held (the game draws none then).
+void menu_pass(MenuPause& mp, rekit::sdl::GameMenu& menu, mech3::Mech3App& app, mech3::GameEngine& engine,
+               sdlfe::SdlRender3D* r) {
+  if (mp.upgrades_step && app.pending() == 0) {
+    mech3::PauseState& pause = mech3::states().pause;
+    if (mp.upgrades_step == 1 && app.current() == &pause) {
+      auto* p = dynamic_cast<mech3::PauseScreen*>(engine.screen_of(pause.screen_));
+      if (p) p->on_button(mech3::PauseScreen::kOptions, 0, 0), mp.upgrades_step = 2;
+    } else if (mp.upgrades_step == 2 && app.current() != &pause) {
+      mp.upgrades_step = 0;
+      if (const zgame::Handle u = mech3::options_upgrades_state()) engine.push_state(u, 0);
+    } else if (app.current() != &pause && app.current() != &mech3::states().core) {
+      mp.upgrades_step = 0;  // the mission left meanwhile
+    }
+  }
+  const int counted = mp.in_mission ? mp.mission_frames : mp.game_frames;
+  if (mp.open_at > 0 && counted >= mp.open_at && !menu.is_open()) {
+    mp.open_at = 0;
+    menu.show();
+    std::printf("mw3: menu: opened at game frame %d (MW3_MENU_AT)\n", mp.game_frames);
+    for (const char k : mp.keys) {
+      const SDL_Scancode sc = k == 'd' ? SDL_SCANCODE_DOWN : k == 'u' ? SDL_SCANCODE_UP : k == 'l' ? SDL_SCANCODE_LEFT
+                              : k == 'r' ? SDL_SCANCODE_RIGHT : SDL_SCANCODE_RETURN;
+      for (const bool down : {true, false}) {
+        SDL_Event ev{};
+        ev.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+        ev.key.scancode = sc, ev.key.key = SDL_GetKeyFromScancode(sc, SDL_KMOD_NONE, false), ev.key.down = down;
+        menu.event(ev);
+      }
+    }
+  }
+  if (!r || !mp.held || engine.run_while_inactive()) return;
+  if (SDL_GetTicks() - mp.last_present_ms < 16) return;
+  if (!mp.shot.empty() && !mp.shot_taken && ++mp.menu_frames == mp.shot_after) {
+    r->capture_next(mp.shot.c_str());
+    mp.shot_taken = true;
+    std::printf("mw3: menu: wrote %s\n", mp.shot.c_str());
+  }
+  r->present();
+  if (mp.shot_taken && mp.close_after) {
+    mp.close_after = false;
+    menu.hide();
+  }
+}
 
 int run(const Args& a, platform::VideoForWindows* vfw) {
   sdlfe::SdlWindow window;
@@ -2238,7 +2417,42 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
       if (window.render())
         window.render()->overlay = [&](SDL_GPUCommandBuffer* c, SDL_GPUTexture* t, Uint32 w, Uint32 h) { editor_ui.overlay(c, t, w, h); };
       sdlfe::SdlPump pump(&input, &app);
-      pump.overlay_event = [&](const SDL_Event& e) { return editor_ui.event(e); };
+      // Ours: the setup menu inside the game (rekit/sdl/game_menu.h; docs/in-game-menu.md), over every screen.
+      // It sees each event first and hands the game's on (the editor's ImGui, then zInput).
+      MenuPause menu_pause;
+      rekit::sdl::GameMenu game_menu(menu_hooks(a, app, engine, window, input, sound.get(), pump, editor_ui, menu_pause),
+                                     menu_theme());
+      menu_pause.menu = &game_menu;
+      if (const char* at = SDL_getenv("MW3_MENU_AT")) {  // checks (MenuPause)
+        menu_pause.open_at = std::atoi(at);
+        if (const char* c = std::strchr(at, ':')) menu_pause.keys = c + 1;
+        if (const char* f = SDL_getenv("MW3_MENU_SHOT_AFTER")) menu_pause.shot_after = std::max(1, std::atoi(f));
+        if (const char* shot = SDL_getenv("MW3_MENU_SHOT")) menu_pause.shot = shot;
+        const char* close = SDL_getenv("MW3_MENU_CLOSE");
+        menu_pause.close_after = close && std::strcmp(close, "1") == 0;
+        const char* in = SDL_getenv("MW3_MENU_IN_MISSION");
+        menu_pause.in_mission = in && std::strcmp(in, "1") == 0;
+      }
+      pump.overlay_event = [&](const SDL_Event& e) {
+        game_menu.event(e);
+        return true;  // the menu delivered the game's (menu_hooks' deliver)
+      };
+      pump.hold_inactive = [&] { return menu_pause.held; };
+      input.menu_up = [&] { return game_menu.is_open(); };
+      if (sdlfe::SdlRender3D* r = window.render())
+        r->before_present = [&, r] {
+          r->clear_layer();
+          menu_pause.last_present_ms = SDL_GetTicks();
+          if (!menu_pause.held || engine.run_while_inactive()) {
+            ++menu_pause.game_frames;
+            if (menu_pause.say_next_dt && !game_menu.is_open()) {
+              menu_pause.say_next_dt = false;
+              std::printf("mw3: menu: the first frame after it: a step of %.3f s\n", ztimer::state().dt);
+            }
+            if (app.current() == &mech3::states().core) ++menu_pause.mission_frames;
+          }
+          game_menu.frame();  // the menu or its hint into the layer (hooks.draw)
+        };
       if (clock.frame_ms || g_net_pass)
         pump.each_pass = [&] {
           if (clock.frame_ms) clock.frame();
@@ -2290,10 +2504,21 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
           std::printf("mw3: editor up (MW3_EDITOR_AT)\n");
         };
       }
+      // The setup menu over a paused game: the game draws nothing then, so the frame it last showed is shown again
+      // with the menu over it, about 60 times a second (the app's idle wait shortened while it is up). In a network
+      // game the game runs on (run_while_inactive) and draws its own frames.
+      {
+        auto before = pump.each_pass;
+        pump.each_pass = [&, before] {
+          if (before) before();
+          menu_pass(menu_pause, game_menu, app, engine, window.render());
+        };
+      }
       // A quit outside the Exit state returns through ExitInstance, as the exe's WM_QUIT does,
       // and leaves the world to the process's end: stop_game after zSound's shutdown freed
       // the sounds the world's nodes still held (the exit's SIGTRAP, docs/program.md).
       result = app.run(pump);
+      if (window.render()) window.render()->before_present = nullptr, window.render()->clear_layer();
       if (!frame_ms.empty()) {  // --frame-times: the frames' wall times
         std::vector<double> s = frame_ms;
         std::sort(s.begin(), s.end());

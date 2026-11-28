@@ -22,6 +22,7 @@ struct RestartTo {
   int test_number = 0;
   std::string mods_entry;  // with open_mods: the campaign chosen on MODS (--mods-entry ID)
   std::string pilot;       // Instant Action's or multiplayer's pilot picked at once (--entry-pilot NAME), so its screen opens, not the pilot screen
+  bool choose_files = false;  // the find screen first, to choose other game files, then the game (--choose-files: the in-game menu's CHANGE)
 };
 
 // The next start's arguments from this start's (without the program's name):

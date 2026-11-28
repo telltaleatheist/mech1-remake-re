@@ -793,6 +793,33 @@ Result check_pm(const std::string& dir, const std::string& write_dir) {
 
 std::string game_version_words(const std::string& version, bool pirates_moon) { return version_words(version, pirates_moon); }
 
+std::vector<std::string> own_check(const std::string& dir, const std::string& write_dir) {
+  std::vector<std::string> out;
+  const Result r = start_check(dir, write_dir, false);
+  if (!r.ok) return {r.summary};
+  out = r.warnings;
+  int n = 0;
+  const DataFile* files = data_files(&n);
+  const fs::path overlay = write_dir.empty() ? fs::path() : fs::path(write_dir) / "patch12";
+  std::vector<uint8_t> d;
+  std::error_code ec;
+  for (int i = 0; i < n; ++i) {
+    const DataFile& f = files[i];
+    const fs::path in_overlay = overlay.empty() ? fs::path() : overlay / f.path;
+    std::string at = !overlay.empty() && fs::exists(in_overlay, ec) ? in_overlay.string() : zutl::any_case(dir, f.path);
+    std::string shown = f.path;
+    std::replace(shown.begin(), shown.end(), '/', '\\');
+    if (at.empty() || !slurp(at, &d)) {
+      if (f.size_10) out.push_back(shown + " is missing.");  // a 1.0 install lacks the patch's own files
+      continue;
+    }
+    const uint32_t crc = zutl_zar::crc32(0, d.data(), d.size());
+    const bool known = (d.size() == f.size_12 && crc == f.crc_12) || (f.size_10 && d.size() == f.size_10 && crc == f.crc_10);
+    if (!known) out.push_back(shown + " is not as MechWarrior 3 1.0 or 1.2 has it (damaged, or changed by a mod).");
+  }
+  return out;
+}
+
 Result check_install(const std::string& dir, const std::string& write_dir, bool pirates_moon) {
   Result r;
   r.install_dir = dir, r.pirates_moon = pirates_moon;

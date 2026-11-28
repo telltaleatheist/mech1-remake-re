@@ -150,6 +150,9 @@ for p in $PROGRAMS; do [ -x "$APPDIR/usr/bin/$p" ] || { echo "no $p in the AppDi
 grep -qx 'Exec=mw3launcher' "$APPDIR"/*.desktop || { echo "the AppImage does not start the launcher" >&2; exit 1; }
 # No local path or user name in anything shipped (release.md, Privacy).
 python3 -I tools/deps/check_paths.py "$APPDIR" || exit 1
+# The record of the AppDir's files for the in-game menu's CHECK MY FILES (the kit's tools/files_manifest.py; the
+# games find it at $APPDIR), before the AppImage squashes the folder.
+python3 -I extern/re-setup-kit/tools/files_manifest.py "$APPDIR" || exit 1
 mkdir -p build-linux-pkg/dist
 OUT="build-linux-pkg/dist/${MW3_PKG_STEM:-MW3-Rebuild}-$VER-x86_64.AppImage"
 ARCH=x86_64 "$TOOLS/appimagetool-x86_64.AppImage" --runtime-file "$TOOLS/runtime-x86_64" "$APPDIR" "$OUT"

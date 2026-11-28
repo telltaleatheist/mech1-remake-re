@@ -146,6 +146,11 @@ SdlRender3D::~SdlRender3D() {
   for (Staging* s : {&tex_staging_, &vert_staging_})
     if (s->buf) SDL_ReleaseGPUTransferBuffer(dev_, s->buf);
   if (frame_) SDL_ReleaseGPUTexture(dev_, frame_);
+  if (layer_tex_) SDL_ReleaseGPUTexture(dev_, layer_tex_);
+  if (layer_staging_) SDL_ReleaseGPUTransferBuffer(dev_, layer_staging_);
+  if (layer_vbuf_) SDL_ReleaseGPUBuffer(dev_, layer_vbuf_);
+  if (layer_pipeline_) SDL_ReleaseGPUGraphicsPipeline(dev_, layer_pipeline_);
+  if (layer_sampler_) SDL_ReleaseGPUSampler(dev_, layer_sampler_);
   for (SDL_GPUShader* s : {vs_, fs_tex_, fs_flat_})
     if (s) SDL_ReleaseGPUShader(dev_, s);
 }
@@ -653,7 +658,139 @@ void SdlRender3D::note_frame_time(Uint64 wait_from) {
   slow_n_ = 0, slow_sum_ = slow_wait_ = 0;
 }
 
+void SdlRender3D::set_layer(const void* rgba, int width, int height, int pitch, uint64_t serial) {
+  layer_px_ = static_cast<const uint8_t*>(rgba), layer_w_ = width, layer_h_ = height, layer_pitch_ = pitch;
+  layer_serial_ = serial;
+}
+
+// The layer over a captured frame (0xAARRGGBB, opaque), as the window shows it: only when it is the window's size.
+void SdlRender3D::layer_over(std::vector<uint32_t>& argb, int w, int h) const {
+  if (!layer_px_ || layer_w_ != w || layer_h_ != h) return;
+  for (int y = 0; y < h; ++y) {
+    const uint8_t* src = layer_px_ + static_cast<size_t>(y) * layer_pitch_;
+    uint32_t* dst = argb.data() + static_cast<size_t>(y) * w;
+    for (int x = 0; x < w; ++x, src += 4) {
+      const uint32_t a = src[3], d = dst[x];
+      if (!a) continue;
+      const auto mix = [a](uint32_t s, uint32_t t) { return (s * a + t * (255 - a) + 127) / 255; };
+      dst[x] = 0xff000000u | mix(src[0], d >> 16 & 0xff) << 16 | mix(src[1], d >> 8 & 0xff) << 8 | mix(src[2], d & 0xff);
+    }
+  }
+}
+
+// The layer on the window's image: its texture uploaded when it changed, one blended quad over the whole target,
+// through the game's own shaders (pre-transformed vertices, the window's pixels as the viewport).
+void SdlRender3D::draw_layer(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, Uint32 w, Uint32 h) {
+  if (!layer_px_ || layer_w_ <= 0 || layer_h_ <= 0) return;
+  const Uint32 lw = static_cast<Uint32>(layer_w_), lh = static_cast<Uint32>(layer_h_);
+  if (!layer_tex_ || layer_tex_w_ != lw || layer_tex_h_ != lh) {
+    if (layer_tex_) SDL_ReleaseGPUTexture(dev_, layer_tex_);
+    SDL_GPUTextureCreateInfo ti{};
+    ti.type = SDL_GPU_TEXTURETYPE_2D, ti.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;  // the menu's RGBA32 bytes
+    ti.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+    ti.width = lw, ti.height = lh, ti.layer_count_or_depth = 1, ti.num_levels = 1;
+    layer_tex_ = SDL_CreateGPUTexture(dev_, &ti);
+    layer_tex_w_ = lw, layer_tex_h_ = lh, layer_uploaded_ = ~0ull;
+    if (!layer_tex_) return;
+  }
+  if (!layer_vbuf_) {
+    SDL_GPUBufferCreateInfo bi{};
+    bi.usage = SDL_GPU_BUFFERUSAGE_VERTEX, bi.size = 6 * sizeof(platform::TLVertex);
+    layer_vbuf_ = SDL_CreateGPUBuffer(dev_, &bi);
+  }
+  if (!layer_sampler_) {
+    SDL_GPUSamplerCreateInfo si{};
+    si.min_filter = si.mag_filter = SDL_GPU_FILTER_NEAREST;  // one to one
+    si.mipmap_mode = SDL_GPU_SAMPLERMIPMAPMODE_NEAREST;
+    si.address_mode_u = si.address_mode_v = si.address_mode_w = SDL_GPU_SAMPLERADDRESSMODE_CLAMP_TO_EDGE;
+    layer_sampler_ = SDL_CreateGPUSampler(dev_, &si);
+  }
+  if (!layer_pipeline_) {
+    SDL_GPUVertexBufferDescription vb{};
+    vb.slot = 0, vb.pitch = sizeof(platform::TLVertex), vb.input_rate = SDL_GPU_VERTEXINPUTRATE_VERTEX;
+    SDL_GPUVertexAttribute attrs[4] = {
+        {0, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT4, offsetof(platform::TLVertex, sx)},
+        {1, 0, SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM, offsetof(platform::TLVertex, diffuse)},
+        {2, 0, SDL_GPU_VERTEXELEMENTFORMAT_UBYTE4_NORM, offsetof(platform::TLVertex, specular)},
+        {3, 0, SDL_GPU_VERTEXELEMENTFORMAT_FLOAT2, offsetof(platform::TLVertex, tu)}};
+    SDL_GPUColorTargetDescription ct{};
+    ct.format = color_format_;
+    ct.blend_state.enable_blend = true;  // straight alpha
+    ct.blend_state.color_blend_op = ct.blend_state.alpha_blend_op = SDL_GPU_BLENDOP_ADD;
+    ct.blend_state.src_color_blendfactor = SDL_GPU_BLENDFACTOR_SRC_ALPHA;
+    ct.blend_state.dst_color_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+    ct.blend_state.src_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE;
+    ct.blend_state.dst_alpha_blendfactor = SDL_GPU_BLENDFACTOR_ONE_MINUS_SRC_ALPHA;
+    SDL_GPUGraphicsPipelineCreateInfo info{};
+    info.vertex_shader = vs_, info.fragment_shader = fs_tex_;
+    info.vertex_input_state.vertex_buffer_descriptions = &vb;
+    info.vertex_input_state.num_vertex_buffers = 1;
+    info.vertex_input_state.vertex_attributes = attrs;
+    info.vertex_input_state.num_vertex_attributes = 4;
+    info.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+    info.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
+    info.target_info.color_target_descriptions = &ct;
+    info.target_info.num_color_targets = 1;
+    layer_pipeline_ = SDL_CreateGPUGraphicsPipeline(dev_, &info);
+    if (!layer_pipeline_) std::fprintf(stderr, "SdlRender3D layer pipeline: %s\n", SDL_GetError());
+  }
+  if (!layer_pipeline_ || !layer_vbuf_ || !layer_sampler_) return;
+  // The pixels (when they changed) and the quad, in one copy pass.
+  const bool upload = layer_uploaded_ != layer_serial_;
+  const uint32_t pixels = upload ? lw * lh * 4 : 0, quad = 6 * sizeof(platform::TLVertex);
+  if (!layer_staging_ || layer_staging_size_ < pixels + quad) {
+    if (layer_staging_) SDL_ReleaseGPUTransferBuffer(dev_, layer_staging_);
+    SDL_GPUTransferBufferCreateInfo tbi{};
+    tbi.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD, tbi.size = std::max(pixels, lw * lh * 4) + quad;
+    layer_staging_ = SDL_CreateGPUTransferBuffer(dev_, &tbi);
+    layer_staging_size_ = layer_staging_ ? tbi.size : 0;
+    if (!layer_staging_) return;
+  }
+  auto* to = static_cast<uint8_t*>(SDL_MapGPUTransferBuffer(dev_, layer_staging_, true));
+  if (!to) return;
+  for (Uint32 y = 0; upload && y < lh; ++y)
+    std::memcpy(to + static_cast<size_t>(y) * lw * 4, layer_px_ + static_cast<size_t>(y) * layer_pitch_, lw * 4);
+  platform::TLVertex v[6]{};
+  const float fw = static_cast<float>(w), fh = static_cast<float>(h);
+  const float corners[6][4] = {{0, 0, 0, 0}, {fw, 0, 1, 0}, {0, fh, 0, 1}, {fw, 0, 1, 0}, {fw, fh, 1, 1}, {0, fh, 0, 1}};
+  for (int i = 0; i < 6; ++i) {
+    v[i].sx = corners[i][0], v[i].sy = corners[i][1], v[i].sz = 0, v[i].rhw = 1;
+    v[i].diffuse = 0xffffffffu, v[i].specular = 0xff000000u, v[i].tu = corners[i][2], v[i].tv = corners[i][3];
+  }
+  std::memcpy(to + pixels, v, quad);
+  SDL_UnmapGPUTransferBuffer(dev_, layer_staging_);
+  SDL_GPUCopyPass* copy = SDL_BeginGPUCopyPass(cmd);
+  if (upload) {
+    SDL_GPUTextureTransferInfo src{layer_staging_, 0, lw, lh};
+    SDL_GPUTextureRegion dst{};
+    dst.texture = layer_tex_, dst.w = lw, dst.h = lh, dst.d = 1;
+    SDL_UploadToGPUTexture(copy, &src, &dst, true);
+    layer_uploaded_ = layer_serial_;
+  }
+  SDL_GPUTransferBufferLocation vsrc{layer_staging_, pixels};
+  SDL_GPUBufferRegion vdst{layer_vbuf_, 0, quad};
+  SDL_UploadToGPUBuffer(copy, &vsrc, &vdst, true);
+  SDL_EndGPUCopyPass(copy);
+  SDL_GPUColorTargetInfo ct{};
+  ct.texture = target, ct.load_op = SDL_GPU_LOADOP_LOAD, ct.store_op = SDL_GPU_STOREOP_STORE;
+  SDL_GPURenderPass* pass = SDL_BeginGPURenderPass(cmd, &ct, 1, nullptr);
+  SDL_GPUViewport vp{0, 0, fw, fh, 0, 1};
+  SDL_SetGPUViewport(pass, &vp);
+  SDL_BindGPUGraphicsPipeline(pass, layer_pipeline_);
+  const float vu[4] = {0, 0, fw, fh};
+  SDL_PushGPUVertexUniformData(cmd, 0, vu, sizeof vu);
+  const float fu[8] = {0, 0, 0, 0, 0, 1, 0, 0};  // no fog, alpha modulated (white: the texel's own), no sharpening
+  SDL_PushGPUFragmentUniformData(cmd, 0, fu, sizeof fu);
+  SDL_GPUBufferBinding vb{layer_vbuf_, 0};
+  SDL_BindGPUVertexBuffers(pass, 0, &vb, 1);
+  SDL_GPUTextureSamplerBinding tsb{layer_tex_, layer_sampler_};
+  SDL_BindGPUFragmentSamplers(pass, 0, &tsb, 1);
+  SDL_DrawGPUPrimitives(pass, 6, 1, 0, 0);
+  SDL_EndGPURenderPass(pass);
+}
+
 void SdlRender3D::present() {
+  if (before_present) before_present();
   if (!frame_) return;
   // MW3_GPU_COUNT=N (ours, issue #7): every N frames, the textures alive and their size, to see one that grows.
   static const int count_every = [] {
@@ -711,6 +848,7 @@ void SdlRender3D::present() {
                     all.begin() + static_cast<size_t>(oy + y) * pw + ox);
         px.swap(all), w = pw, h = ph;
       }
+      layer_over(px, w, h);  // the setup menu as the window shows it
       SDL_Surface* sf = SDL_CreateSurfaceFrom(w, h, SDL_PIXELFORMAT_ARGB8888, px.data(), w * 4);
       SDL_SaveBMP(sf, capture_path_);
       SDL_DestroySurface(sf);
@@ -738,6 +876,7 @@ void SdlRender3D::present() {
     bi.filter = SDL_GPU_FILTER_LINEAR;
     SDL_BlitGPUTexture(cmd, &bi);
     if (overlay) overlay(cmd, sc, w, h);
+    draw_layer(cmd, sc, w, h);
     SDL_SubmitGPUCommandBuffer(cmd);
     mark_ready();  // a frame on the screen: the launcher may hide (sdl_child.h)
     return;

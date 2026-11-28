@@ -297,6 +297,14 @@ fi
 # Signing (the kit's script): every Mach-O inside first (the libraries; the game and the importer, second programs
 # in Contents/MacOS), then the app that seals them. tools/macos/mw3.entitlements grants nothing: the app needs no
 # exception.
+# The record of the app's files for the in-game menu's CHECK MY FILES (the kit's tools/files_manifest.py, at
+# Contents/rebuild-files.sha256: the games' program_dir), written before signing so the app's seal covers it. Every
+# Mach-O is left out: codesign rewrites each one (its signature is in the file), and the seal checks those already.
+LEAVE=()
+while IFS= read -r -d '' f; do
+  [[ "$(file -b "$f")" == Mach-O* ]] && LEAVE+=(--leave-out "$(basename "$f")")
+done < <(find "$APP/Contents" -type f -print0)
+python3 -I extern/re-setup-kit/tools/files_manifest.py "$APP/Contents" "${LEAVE[@]}" || exit 1
 ENTS=(--entitlements tools/macos/mw3.entitlements)
 for p in mw3 mw3import mw3pm mw1; do
   if [ -f "$APP/Contents/MacOS/$p" ]; then ENTS+=(--entitlements-for "Contents/MacOS/$p" tools/macos/mw3.entitlements); fi

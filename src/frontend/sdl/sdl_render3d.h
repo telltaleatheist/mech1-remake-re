@@ -53,6 +53,13 @@ class SdlRender3D : public platform::Render3D {
   // Ours: drawn on the swapchain after the game's frame is put there (the game
   // editor's ImGui, editor_imgui.h). Not in a capture: shots show the game alone.
   std::function<void(SDL_GPUCommandBuffer*, SDL_GPUTexture*, Uint32, Uint32)> overlay;
+  // Ours: run first in present(), before the frame is put on the window (the in-game setup menu's frame()).
+  std::function<void()> before_present;
+  // Ours: a picture over the whole window, one to one, blended by its straight alpha (the in-game setup menu,
+  // rekit/sdl/game_menu.h). Kept until clear_layer(); uploaded again only when `serial` changes. In a capture too.
+  void set_layer(const void* rgba, int width, int height, int pitch, uint64_t serial);
+  void clear_layer() { layer_px_ = nullptr; }
+  bool has_layer() const { return layer_px_ != nullptr; }
 
  private:
   int32_t make_texture(int width, int height, const uint8_t* rgba, bool mips);
@@ -123,6 +130,19 @@ class SdlRender3D : public platform::Render3D {
   float clear_rgb_[3] = {0, 0, 0};
   float fog_rgb_[3] = {0, 0, 0};
   const char* capture_path_ = nullptr;
+  // The layer (set_layer): the caller's pixels for this present, and its texture on the GPU.
+  void draw_layer(SDL_GPUCommandBuffer* cmd, SDL_GPUTexture* target, Uint32 w, Uint32 h);
+  void layer_over(std::vector<uint32_t>& argb, int w, int h) const;
+  const uint8_t* layer_px_ = nullptr;
+  int layer_w_ = 0, layer_h_ = 0, layer_pitch_ = 0;
+  uint64_t layer_serial_ = 0, layer_uploaded_ = ~0ull;
+  SDL_GPUTexture* layer_tex_ = nullptr;
+  Uint32 layer_tex_w_ = 0, layer_tex_h_ = 0;
+  SDL_GPUTransferBuffer* layer_staging_ = nullptr;
+  uint32_t layer_staging_size_ = 0;
+  SDL_GPUBuffer* layer_vbuf_ = nullptr;
+  SDL_GPUGraphicsPipeline* layer_pipeline_ = nullptr;
+  SDL_GPUSampler* layer_sampler_ = nullptr;
   const FrameShape* shape_ = nullptr;  // the frame's shape in the window (null: the whole window)
   FitRect fit_;                        // where the back buffer goes in the window's pixels
 };

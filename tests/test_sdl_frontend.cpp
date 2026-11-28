@@ -11242,3 +11242,166 @@ TEST(sdl_program_issue19_menu_sounds) {
   EXPECT(between(run("salvage_off", off), "state Salvage State", nullptr).empty());
 }
 #endif
+
+// The setup menu inside the game (kit step 5; rekit/sdl/game_menu.h, docs/in-game-menu.md): opened over MechWarrior
+// 3's own frames by the checks' MW3_MENU_AT (mw3_main.cpp, MenuPause), keys pressed in it, a shot of it, then closed.
+namespace ingame {
+std::string read(const std::string& path) {
+  std::ifstream in(path);
+  return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+}
+bool in(const std::string& text, const std::string& what) { return text.find(what) != std::string::npos; }
+// mw3 with `args`, the env's pairs set for the run; its log, and its exit in *code (-1: did not end).
+std::string run(const std::string& log, const std::vector<std::string>& args,
+                const std::vector<std::pair<const char*, std::string>>& env, int* code, int seconds = 240) {
+  for (const auto& [k, v] : env) setenv(k, v.c_str(), 1);
+  const pid_t pid = spawn_mw3(args, log);
+  for (const auto& [k, v] : env) unsetenv(k);
+  int status = 0;
+  *code = waited(pid, &status, seconds) && WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+  return read(log);
+}
+// A 32-bit BMP's pixel at (x, y) from the top as 0xRRGGBB; -1 when it cannot be read.
+long bmp_pixel(const std::string& path, int x, int y) {
+  const std::string d = read(path);
+  if (d.size() < 54 || d[0] != 'B' || d[1] != 'M' || static_cast<uint8_t>(d[28]) != 32) return -1;
+  auto u32 = [&](size_t at) {
+    return static_cast<uint32_t>(static_cast<uint8_t>(d[at]) | static_cast<uint8_t>(d[at + 1]) << 8 |
+                                 static_cast<uint8_t>(d[at + 2]) << 16 | static_cast<uint8_t>(d[at + 3]) << 24);
+  };
+  const int32_t w = static_cast<int32_t>(u32(18)), h = static_cast<int32_t>(u32(22));
+  if (x < 0 || y < 0 || x >= w || y >= std::abs(h)) return -1;
+  const size_t at = u32(10) + (static_cast<size_t>(h > 0 ? h - 1 - y : y) * w + x) * 4;
+  if (at + 3 > d.size()) return -1;
+  return static_cast<long>(static_cast<uint8_t>(d[at + 2])) << 16 | static_cast<uint8_t>(d[at + 1]) << 8 | static_cast<uint8_t>(d[at]);
+}
+// The menu drawn in a 1280x960 shot: its page panel's inside (the kit's panel color, #141920) where the game has
+// none of its own.
+bool menu_in_shot(const std::string& path) {
+  const long p = bmp_pixel(path, 760, 650);
+  const int r = static_cast<int>(p >> 16 & 0xff), g = static_cast<int>(p >> 8 & 0xff), b = static_cast<int>(p & 0xff);
+  std::printf("  %s at the panel: %06lx\n", path.substr(path.rfind('/') + 1).c_str(), p);
+  return p >= 0 && std::abs(r - 20) <= 6 && std::abs(g - 25) <= 6 && std::abs(b - 32) <= 6;
+}
+// The number after `what` in the log ("" when it is not there: NaN).
+double after(const std::string& log, const std::string& what) {
+  const size_t at = log.find(what);
+  return at == std::string::npos ? std::nan("") : std::atof(log.c_str() + at + what.size());
+}
+}  // namespace ingame
+
+// In the main menu: RESET SETTINGS asked and confirmed. MechWarrior 3's options are back to the loader's defaults at
+// once (settings.reg written by the game's own writer), the rebuild's keys in mw3.cfg gone and its install= kept, the
+// old ones copied to Backups first; the game held while the menu was up, and drawn under it.
+TEST(sdl_menu_in_game_main_menu_reset_settings) {
+  if (!have_fonts()) return;
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/sdl_menu_in_game_main", wd = dir + "/wd";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(wd);
+  std::ofstream(wd + "/settings.reg") << "Windows Registry Editor Version 5.00\n\n"
+                                         "[HKEY_CURRENT_USER\\SOFTWARE\\MicroProse\\MechWarrior 3\\1.0]\n"
+                                         "\"GameIntensity\"=dword:00000002\n\"SoundVolume\"=hex:00,00,80,3e\n";
+  std::ofstream(wd + "/mw3.cfg") << "install=" << MW3_GAME_DIR << "\nwidemenus=0\nupgrade_water=0\nrumble=0\n";
+  int code = 0;
+  const std::string log = ingame::run(dir + "/run.log", {"--write-dir", wd, "--frames", "200", "-nofmv", "--hidden", "--nosound"},
+                                      {{"RE_KIT_TEST", "1"}, {"MW3_MENU_AT", "60:ddddreue"}, {"MW3_MENU_SHOT", dir + "/menu.bmp"},
+                                       {"MW3_MENU_SHOT_AFTER", "20"}, {"MW3_MENU_CLOSE", "1"}},
+                                      &code);
+  const std::string reg = ingame::read(wd + "/settings.reg"), cfg = ingame::read(wd + "/mw3.cfg");
+  std::printf("  exit %d, reset %d, intensity 1 %d, volume 0.5 %d, cfg [%s]\n", code,
+              ingame::in(log, "mw3: menu: settings reset to their defaults\n"), ingame::in(reg, "\"GameIntensity\"=dword:00000001"),
+              ingame::in(reg, "\"SoundVolume\"=hex:00,00,00,3f"), cfg.c_str());
+  EXPECT(code == 0);
+  EXPECT(ingame::in(log, "mw3: menu: opened at game frame 60") && ingame::in(log, "mw3: menu: settings reset to their defaults\n"));
+  EXPECT(ingame::in(log, "mw3: menu: the game resumed: 0 game frames"));
+  EXPECT(ingame::in(reg, "\"GameIntensity\"=dword:00000001") && ingame::in(reg, "\"SoundVolume\"=hex:00,00,00,3f"));
+  EXPECT(ingame::in(reg, "\"ActiveCtlCfg\""));  // the controls written too (the default map)
+  EXPECT(ingame::in(cfg, std::string("install=") + MW3_GAME_DIR) && !ingame::in(cfg, "widemenus") &&
+         !ingame::in(cfg, "upgrade_water") && !ingame::in(cfg, "rumble"));
+  bool backed_up = false;
+  for (const auto& d : fs::directory_iterator(wd + "/Backups", ec))
+    backed_up = backed_up || ingame::in(ingame::read((d.path() / "settings.reg").string()), "dword:00000002");
+  EXPECT(backed_up);
+  EXPECT(ingame::menu_in_shot(dir + "/menu.bmp"));
+  fs::remove_all(dir, ec);
+}
+
+// In a campaign mission (the Core State, reached as a player does: --campaign-chain): the menu holds the game by the
+// window's own deactivation, so no frame runs and the mission's clock does not move while it is up, and the first
+// frame after it steps a frame's time, not the time away. The campaign then plays on to its wins.
+TEST(sdl_menu_in_game_mission_holds_the_clock) {
+  if (!have_fonts()) return;
+  namespace fs = std::filesystem;
+  const std::string dir = std::string(MW3_TEST_TMP) + "/sdl_menu_in_game_mission", wd = dir + "/wd";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  fs::create_directories(wd);
+  int code = 0;
+  const std::string log =
+      ingame::run(dir + "/run.log", {"--campaign-chain", "1", "--nosound", "--hidden", "--write-dir", wd, "--seed", "1999"},
+                  {{"RE_KIT_TEST", "1"}, {"MW3_MENU_IN_MISSION", "1"}, {"MW3_MENU_AT", "90"},
+                   {"MW3_MENU_SHOT", dir + "/menu.bmp"}, {"MW3_MENU_SHOT_AFTER", "120"}, {"MW3_MENU_CLOSE", "1"}},
+                  &code, 600);
+  const double mission = ingame::after(log, "of mission time while it was up (mission time ");
+  const double step = ingame::after(log, "mw3: menu: the first frame after it: a step of ");
+  const double away = ingame::after(log, "s; the timer's total ");
+  std::printf("  exit %d, mission time %.3f s, the timer %.3f s on while up, first step %.3f s, chain done %d\n", code, mission,
+              away, step, ingame::in(log, "mw3: chain done at"));
+  EXPECT(code == 0);
+  EXPECT(ingame::in(log, "mw3: menu: the game resumed: 0 game frames and 0.000 s of mission time while it was up"));
+  EXPECT(mission > 0 && away > 0.5);  // in the mission, and the menu up for a while (120 of its frames at about 60 a second)
+  EXPECT(step >= 0 && step < 0.2);    // the time away not caught up (the timer's clamp is 0.125 s)
+  EXPECT(ingame::in(log, "mw3: chain done at"));
+  EXPECT(ingame::menu_in_shot(dir + "/menu.bmp"));
+  fs::remove_all(dir, ec);
+}
+
+// CHECK MY FILES on an install with no record of its files: MechWarrior 3's own check (game_setup.h own_check), the
+// 28 data files against 1.0's and 1.2's sizes and CRCs. The install as found has none; a copy (its files linked, one
+// damaged, one gone) has those two, in plain words.
+TEST(sdl_menu_in_game_own_check) {
+  namespace fs = std::filesystem;
+  if (!fs::exists(std::string(MW3_GAME_DIR) + "/zbd/c3/anim.zbd")) return;
+  const std::vector<std::string> clean = mech3::setup::own_check(MW3_GAME_DIR, "");
+  for (const auto& p : clean) std::printf("  as found: %s\n", p.c_str());
+  EXPECT(clean.empty());
+  const std::string dir = std::string(MW3_TEST_TMP) + "/sdl_menu_in_game_own_check";
+  std::error_code ec;
+  fs::remove_all(dir, ec);
+  for (const auto& f : fs::recursive_directory_iterator(MW3_GAME_DIR, ec)) {
+    const fs::path to = dir / fs::relative(f.path(), MW3_GAME_DIR);
+    if (f.is_directory()) fs::create_directories(to, ec);
+    else if (f.is_regular_file()) fs::create_symlink(f.path(), to, ec);
+  }
+  const fs::path anim = fs::path(dir) / "zbd/c3/anim.zbd";
+  fs::remove(anim, ec);
+  fs::copy_file(fs::path(MW3_GAME_DIR) / "zbd/c3/anim.zbd", anim, ec);
+  {
+    std::fstream f(anim, std::ios::in | std::ios::out | std::ios::binary);
+    f.seekp(100);
+    f.put('\x5a');
+  }
+  fs::remove(fs::path(dir) / "zbd/c3/readerm2.zbd", ec);  // in 1.0 and 1.2; not one start_check needs
+  const std::vector<std::string> bad = mech3::setup::own_check(dir, "");
+  for (const auto& p : bad) std::printf("  damaged: %s\n", p.c_str());
+  EXPECT(bad.size() == 2);
+  EXPECT(std::find(bad.begin(), bad.end(), "zbd\\c3\\anim.zbd is not as MechWarrior 3 1.0 or 1.2 has it (damaged, or changed by a mod).") != bad.end());
+  EXPECT(std::find(bad.begin(), bad.end(), "zbd\\c3\\readerm2.zbd is missing.") != bad.end());
+  // A file the game cannot start without: that alone, as its start says it.
+  fs::remove(fs::path(dir) / "Mech3Msg.dll", ec);
+  const std::vector<std::string> cannot = mech3::setup::own_check(dir, "");
+  EXPECT(cannot.size() == 1 && cannot[0].find("Mech3Msg.dll") != std::string::npos);
+  fs::remove_all(dir, ec);
+}
+
+// The menu's CHANGE restarts on the find screen and then plays (--choose-files), never into --setup's find-and-exit.
+TEST(sdl_menu_in_game_change_restarts_to_choose) {
+  using V = std::vector<std::string>;
+  sdlfe::RestartTo to;
+  to.choose_files = true;
+  const V first = sdlfe::restart_args({"--write-dir", "w", "--windowed", "-nofmv"}, to);
+  EXPECT((first == V{"--write-dir", "w", "--windowed", "-nofmv", "--choose-files", "--restarted"}));
+  EXPECT((sdlfe::restart_args(first, sdlfe::RestartTo{}) == V{"--write-dir", "w", "--windowed", "-nofmv", "--restarted"}));
+}
