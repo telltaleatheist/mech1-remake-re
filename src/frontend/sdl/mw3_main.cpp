@@ -1339,10 +1339,12 @@ struct MenuPause {
   int game_frames = 0;           // presents the game made (none while held, but in a network game)
   int upgrades_step = 0;  // UPGRADES in a mission, as a player goes: 1 the pause screen up, 2 its OPTIONS pressed, then the page
   // Checks: MW3_MENU_AT=N[:keys] opens it at the game's Nth frame and presses `keys` (d u l r: the arrows, e: Enter);
+  // MW3_MENU_AT=notice[:keys] presses the menu's own keys once the kit says its update notice (opening the prompt);
   // MW3_MENU_KEYS=keys@F[;keys@F] presses keys at the menu's Fth frame however it opened (the update prompt);
   // MW3_MENU_SHOT=PATH[@F][;PATH@F] captures at the menu's Fth frame (MW3_MENU_SHOT_AFTER, 10, without @F);
   // MW3_MENU_CLOSE=1 closes it after the last. The clock is said at both ends.
   int open_at = 0, menu_frames = 0;
+  bool at_notice = false, notice_said = false;  // MW3_MENU_AT=notice; the kit logged "menu: the update notice:"
   bool in_mission = false;  // MW3_MENU_IN_MISSION=1: N counts the frames of a campaign mission (the core state), not the run's
   int mission_frames = 0;
   bool say_next_dt = false;  // the first frame after the menu: its step said (the time away is not caught up)
@@ -1500,7 +1502,10 @@ rekit::sdl::MenuHooks menu_hooks(const Args& a, mech3::Mech3App& app, mech3::Gam
   h.runs_on = [&engine] { return engine.run_while_inactive(); };  // a network game runs on under the menu (W45)
   h.entries.push_back({"UPGRADES", [&mp, &app, &engine] { open_upgrades(mp, app, engine); },
                        [&app] { return upgrades_reachable(app); }, "In the main menu or a mission"});
-  h.log = [](const std::string& line) { std::printf("mw3: %s\n", line.c_str()); };
+  h.log = [&mp](const std::string& line) {
+    std::printf("mw3: %s\n", line.c_str());
+    if (line.rfind("menu: the update notice:", 0) == 0) mp.notice_said = true;  // MW3_MENU_AT=notice
+  };
   return h;
 }
 
@@ -1553,6 +1558,17 @@ void menu_pass(MenuPause& mp, rekit::sdl::GameMenu& menu, mech3::Mech3App& app, 
     mp.open_at = 0;
     menu.show();
     std::printf("mw3: menu: opened at game frame %d (MW3_MENU_AT)\n", mp.game_frames);
+    menu_keys(menu, mp.keys);
+  }
+  if (mp.at_notice && mp.notice_said && !menu.is_open()) {
+    mp.at_notice = false;
+    std::printf("mw3: menu: its keys pressed at the update notice (MW3_MENU_AT)\n");  // before: the prompt says itself
+    for (const bool down : {true, false}) {  // the menu's keys, as a player presses them: the waiting prompt opens
+      SDL_Event ev{};
+      ev.type = down ? SDL_EVENT_KEY_DOWN : SDL_EVENT_KEY_UP;
+      ev.key.scancode = SDL_SCANCODE_F1, ev.key.key = SDLK_F1, ev.key.mod = rekit::sdl::GameMenu::keys(), ev.key.down = down;
+      menu.event(ev);
+    }
     menu_keys(menu, mp.keys);
   }
   if (!r || !mp.held || engine.run_while_inactive()) return;
@@ -2612,6 +2628,7 @@ int run(const Args& a, platform::VideoForWindows* vfw) {
       menu_pause.menu = &game_menu;
       if (const char* at = SDL_getenv("MW3_MENU_AT")) {  // checks (MenuPause)
         menu_pause.open_at = std::atoi(at);
+        menu_pause.at_notice = std::strncmp(at, "notice", 6) == 0;
         if (const char* c = std::strchr(at, ':')) menu_pause.keys = c + 1;
         const char* in = SDL_getenv("MW3_MENU_IN_MISSION");
         menu_pause.in_mission = in && std::strcmp(in, "1") == 0;
