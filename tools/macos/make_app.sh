@@ -286,6 +286,9 @@ mkdir -p "$APP/Contents/Resources/licenses/rmlui"
 cp third_party/rmlui/LICENSE.txt "$APP/Contents/Resources/licenses/rmlui/"
 cp third_party/rmlui/Include/RmlUi/Core/Containers/LICENSE.txt "$APP/Contents/Resources/licenses/rmlui/LICENSE-containers.txt"
 cp tools/macos/THIRD-PARTY.txt "$APP/Contents/Resources/THIRD-PARTY.txt"
+# The setup kit's settings file (rekit/settings.h), in the game's program_dir (Contents/Resources), so the record
+# below lists it. A game's own: the launcher alone carries no in-game menu.
+if [ -z "$LAUNCHER_ONLY" ]; then cp assets/setup-kit-settings.json "$APP/Contents/Resources/setup-kit-settings.json"; fi
 # libarchive, zlib and liblzma: linked in with --deps (build_deps.sh keeps
 # their licences in the prefix); Homebrew's libarchive is a dylib, its
 # licences copied with it above.
@@ -307,6 +310,9 @@ while IFS= read -r -d '' f; do
   [[ "$(file -b "$f")" == Mach-O* ]] && LEAVE+=(--leave-out "$(basename "$f")")
 done < <(find "$APP/Contents/Resources" -type f -print0)
 python3 -I extern/re-setup-kit/tools/files_manifest.py "$APP/Contents/Resources" ${LEAVE[@]+"${LEAVE[@]}"} || exit 1  # bash 3.2: an empty array is unbound under set -u
+if [ -z "$LAUNCHER_ONLY" ] && ! grep -q '  setup-kit-settings.json$' "$APP/Contents/Resources/rebuild-files.sha256"; then
+  echo "the record does not list setup-kit-settings.json" >&2; exit 1
+fi
 ENTS=(--entitlements tools/macos/mw3.entitlements)
 for p in mw3 mw3import mw3pm mw1; do
   if [ -f "$APP/Contents/MacOS/$p" ]; then ENTS+=(--entitlements-for "Contents/MacOS/$p" tools/macos/mw3.entitlements); fi

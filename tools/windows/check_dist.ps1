@@ -52,6 +52,8 @@ $programs = @('mw3launcher.exe') + $(if (-not $LauncherOnly) { @('mw3.exe') } el
 foreach ($exe in $programs) {
   if (-not (Test-Path -LiteralPath (Join-Path $Dist $exe))) { $missing += "$exe (the program itself)" }
 }
+# The setup kit's settings file beside mw3.exe (its program_dir; rekit/settings.h): a game's, not the launcher alone's.
+if (-not $LauncherOnly -and -not (Test-Path -LiteralPath (Join-Path $Dist 'setup-kit-settings.json'))) { $missing += 'setup-kit-settings.json (the setup kit''s settings, beside mw3.exe)' }
 # The libraries linked into mw3.exe carry no file of their own: their licences must be there (and FreeType, inside
 # SDL3_ttf.dll, from build_deps_ttf.cmd).
 foreach ($lib in 'libarchive-*', 'zlib-*', 'xz-*', 'imgui', 'rmlui', 'freetype-*', 'SDL3_ttf-*') {
