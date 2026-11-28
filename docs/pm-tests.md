@@ -280,10 +280,45 @@ link is MW3's again here. With it, `mission_c1m1_hud_views_drawn_headless`, the 
 `issue10_middle_button` tests and `controls_lever_direction` pass from `build-mw3`, so MW3's mission tests work as a
 shared-code check from `pm` again. The ten mission tests above that crashed in the reader (with
 `mission_c1m1_tag_fires_from_the_mech_headless`) no longer crash: `net_game_over_reaches_the_main_menu_c1m1_headless`
-passes, and the other nine fail on their own checks (32 in all, 2026-11-27), not yet sorted into PM-by-design or news.
+passes, and the other nine fail on their own checks (32 in all, 2026-11-27), sorted below.
 The default command-line mech (`Launch::mech` 13) is right for both: the shared roster on this branch is PM's
 (`mech_names.cpp`), where 13 is the Mad Cat; the "stealth" reports in MW3's logs are the stealth object's, made in
 every mission.
+
+The nine, sorted (2026-11-27; one ledger run, then experiments, each a temporary edit restored from a saved copy).
+None is a break in shared code that main or MW3 would have. One is a gap in PM itself (the stations, last).
+- `mission_c1m1_tag_fires_from_the_mech_headless`: PM by design, PM's weapon list. The tests-only helper
+  `mech_tag_muzzle` adds weapon 0x20, MW3's TAG; in PM's list (`mech_names.cpp`) 0x20 is MGUNH and TAG is `kTag`
+  0x2c. With `kTag` it passes (mounted, the muzzle 7.8 m out). PM's `pm_tag_fires_from_the_mech` covers TAG.
+- `net_mech_made_from_a_record_c1m1_headless`, `net_hostile_peer_c1m1_headless`, `net_chat_panel_c1mp1_headless`: PM
+  by design, where the handlers go on. PM's network start (0x0046ef80) puts no handlers on; the launch does
+  (`net_register`, 0x0046f030). The check helpers (`program_net_mech_check`, `program_net_hostile_check`, and
+  `chat_session` for the chat and pose checks) start the game with `net_start` alone, so Bob's state is never routed
+  and no mech is made from his record. With `net_register()` after the helpers' `net_start()` all three pass.
+- `net_remote_pose_follows_the_states_c1mp1_headless`: three of its five checks are the handlers, as above. The two
+  left are timing, probably PM's, not proven. PM's state apply aims at the point sent (0x004705e0, checked against
+  the exe by `test_pm_net_apply`), and standing, the arms still close in at 0.001 a frame after the 40-frame window
+  (a spread of 0.0128 against 0.002). Stopped, the remote mech's throttle, eased up to 0.23 of the 0.6 sent, decays
+  about 1.5% a frame, and its gait stays a walk 20 frames past the 70-frame window (3.9 m against under 1). Both
+  settle; the gait is PM's mech step (cfbf95c6d); the controls' easing is the same code as main's.
+- `mission_c1m1_nav_waynet_headless`: PM by design, PM's names. PM's load asks for `waynet_<block>` in
+  `reader<block>.zbd` (`waynet_m1`, 0x00493a90); MW3's `c1/reader.zbd` has `waynet_1`, `waynet_ia1`,
+  `waynet_mp1`. No waynet, no nav points. No PM test checks the nav points in a mission (the builder is
+  `test_pm_ai_nets.py`'s).
+- `campaign_debriefing_scores_the_missions_objectives_headless`: PM by design, three ways. PM's Exit Mission is
+  command 0x79 (MW3's 0x71; PM's tests send 0x79), so the mission never ends. With 0x79 the debriefing shows MW3's
+  totals (101500, 2500) in PM's layout (no empty "Secondary Objectives" heading, a "Mechs Defeated" part), and its
+  CONTINUE does not lead to c1m2's briefing as MW3's does.
+- `net_pilot_respawns_c1mp1_headless`: PM by design, PM's rounds. Without respawning, PM's kill scoring (0x004721e0)
+  puts the victim out and one side left ends the round ("No more enemies"): the game goes to its menu 190 frames
+  after the death, before the dead list's call (7.1 s) that would set MW3's camera 4. Respawn on passes.
+  `test_pm_net_score.py` and `test_pm_net_respawn.py` check these against the exe.
+- `net_mobile_base_stations_c1mp1_headless`: PM by design for the test, and a gap in PM. PM makes the stations from
+  the multiplayer pilot's own switch (+0xc4) and its MCB waynet (0x004938e0, `mission.cpp`), where MW3 uses the
+  game's `ba8` and the nav waynet; the test sets `ba8`. The gap: the waynet comes from the hook `mp_mcbs()`, still
+  the unported stub on `pm` ("[0x0062fc18]"), so PM's multiplayer field base stations are never made in mw3pm.
+  [0x0062fc18] is the waynet PM's 0x004e57e0 makes (paired with MW3's `mcb_waynet_make` 0x004d5460,
+  `pm-diff/pairs.json`), so the hook looks like the port's `mcb_waynet()`. Not fixed yet.
 
 ## MW3's tests rewritten for PM (`pm_moved.py`)
 
