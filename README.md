@@ -46,6 +46,16 @@ Every release's full notes are on the [Releases](../../releases) page, and
 [CHANGES.md](CHANGES.md) lists everything the rebuild changes from the
 original.
 
+**1.8.0 (2026-11-28)** (the full notes are in
+[docs/release-notes-1.8.0.md](docs/release-notes-1.8.0.md)): a setup menu
+inside the game (Cmd + Shift + F1 on the Mac, Shift + Alt + F1 elsewhere)
+shows the game files in use, reports a problem, checks your files, resets the
+settings and opens the Upgrades page, pausing the game while it is open (in a
+multiplayer game it can't pause, and says so); its UPDATES page updates the
+game from inside it; RUMBLE on the Game Options screen turns a pad's rumble
+off; a gamepad's throttle keeps Assign Axis's zero point, stopping at rest;
+the salvage and debriefing lists' scroll arrows click.
+
 **1.7.0 (2026-11-27)** (the full notes are in
 [docs/release-notes-1.7.0.md](docs/release-notes-1.7.0.md)): started on its
 own without game files, the game offers to download the original files; a
