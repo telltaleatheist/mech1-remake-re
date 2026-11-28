@@ -37,7 +37,7 @@ const zgame::Table kPm = {"Pirate's Moon", "Pirate's Moon 1.0", zar::read_table,
                          zimg::set_light_map, zimg::set_additive, 0x800, true, false, zcls::clutter_draw_cell, zcls::clutter_free_cell, render_setup, true, 1, true, true,
                          zcls::light_override, zcls::light_restore, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true,
                          zeff::ev_own, zeff::anim_hit_sequence, zeff::ev_if, zimg::resolve_name, zcls::lod_fades,
-                         true, true, true, true, true};
+                         true, true, true, true, true, true, true};
 }  // namespace
 
 const zgame::Table& table() { return kPm; }

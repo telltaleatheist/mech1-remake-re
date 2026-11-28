@@ -225,8 +225,8 @@ vehicle image leaves the turret's limits out; `import_takes_a_mech_loadout_for_t
 (PM's lab names its loadout file, 0x00427f50); `test_teleport` gets `MW3PM_GAME_DIR`; `mech_tag_muzzle` (a tests-only
 helper PM's `app_weapons.cpp` had dropped) is back. MW3's programs and `mw3sdltests` are not targets here even with
 the switch on (they start MW3's programs, built from `main`), and `mw3pmsdltests` is built either way, so a plain
-`ninja` builds the whole tree. `mission_c1m1_tag_fires_from_the_mech_headless` crashes loading MW3's mission, with the
-mission tests below.
+`ninja` builds the whole tree. `mission_c1m1_tag_fires_from_the_mech_headless` crashed loading MW3's mission, with the
+mission tests below (fixed 2026-11-27; it still fails on its checks).
 
 MW3's non-mission tests on `pm` read "0 failed" plus one line, "left out on pm: N (tests/pm_left_out.h)": that
 table lists each MW3 test whose code is Pirate's Moon's here, with the PM test that covers it and the PM commit or
@@ -254,8 +254,8 @@ commit's lobby files): these 13 fail or crash here by design.
 - `net_remote_pose_follows_the_states_c1mp1_headless`, `net_pilot_respawns_c1mp1_headless`,
   `net_mobile_base_stations_c1mp1_headless`, `net_mech_made_from_a_record_c1m1_headless`, `net_hostile_peer_c1m1_headless`,
   `net_game_over_reaches_the_main_menu_c1m1_headless`, `net_chat_panel_c1mp1_headless`, `mission_c1m1_nav_waynet_headless`,
-  `campaign_debriefing_scores_the_missions_objectives_headless`: each crashes loading MW3's mission in PM's tree reader
-  (`zcls::node_link` under `read_tree`), the mechlib reads' crash.
+  `campaign_debriefing_scores_the_missions_objectives_headless`: each crashed loading MW3's mission (`zcls::node_link`
+  under `read_tree`), the mechlib reads' crash, fixed 2026-11-27 (below); all but the game-over one still fail.
 
 Since the lobby became PM's (pieces 6a to 6c-2, rerun 2026-11-08 at 6c-2 and its parent), every `net_lobby_*` test but
 `net_lobby_chat_headless` fails by design, on MW3's lobby: its control ids (LOCK 0xb, READY 0x15, PLAYERS_LIST 0x17;
@@ -268,6 +268,68 @@ PM's 0xd, 0x1c, 0x1e), its rules message (0x10 bytes; PM's 0x18, so a MW3 one is
 PM's own headless lobby tests replace them in piece 8.
 
 A failure outside these lists is news.
+
+The mechlib reads' crash, found and fixed 2026-11-27. PM's tree copy (5a1aef5bf, 2026-11-04) put PM's moved mark
+(0x004ff6d0, `node_mark_moved`) into the shared `zcls::node_link`, as PM's link 0x004fd6f0 does; MW3's link 0x004eba90
+has no mark. MW3's `read_node` (0x004fce50) copies the file's 0xd0 bytes over the new node, so its child count is the
+file's while its `children` array is still null, and it links the node to its parent before `read_tree` clears them;
+the mark then walks the null array (lldb: EXC_BAD_ACCESS at 0 in `node_mark_moved`, from `create_ai_mech`). PM's own
+`read_node` clears them first, so PM never hit it, and nothing that ships reaches MW3's reader on this branch (mw3pm
+sets PM's table at start). The mark is now behind the table's `node_link_marks_moved` (PM true, MW3 false), so MW3's
+link is MW3's again here. With it, `mission_c1m1_hud_views_drawn_headless`, the `issue10_pad_throttle` and
+`issue10_middle_button` tests and `controls_lever_direction` pass from `build-mw3`, so MW3's mission tests work as a
+shared-code check from `pm` again. The ten mission tests above that crashed in the reader (with
+`mission_c1m1_tag_fires_from_the_mech_headless`) no longer crash: `net_game_over_reaches_the_main_menu_c1m1_headless`
+passes, and the other nine fail on their own checks (32 in all, 2026-11-27), sorted below.
+The default command-line mech (`Launch::mech` 13) is right for both: the shared roster on this branch is PM's
+(`mech_names.cpp`), where 13 is the Mad Cat; the "stealth" reports in MW3's logs are the stealth object's, made in
+every mission.
+
+The nine, sorted (2026-11-27; one ledger run, then experiments, each a temporary edit restored from a saved copy).
+None is a break in shared code that main or MW3 would have. One was a gap in PM itself (the stations, last; fixed).
+The six PM by design (the five and the remote pose) are in `tests/pm_left_out.h`, each with the PM tests that cover it.
+- `mission_c1m1_tag_fires_from_the_mech_headless`: PM by design, PM's weapon list. The tests-only helper
+  `mech_tag_muzzle` adds weapon 0x20, MW3's TAG; in PM's list (`mech_names.cpp`) 0x20 is MGUNH and TAG is `kTag`
+  0x2c. With `kTag` it passes (mounted, the muzzle 7.8 m out). PM's `pm_tag_fires_from_the_mech` covers TAG.
+- `net_mech_made_from_a_record_c1m1_headless`, `net_hostile_peer_c1m1_headless`, `net_chat_panel_c1mp1_headless`: PM
+  by design, where the handlers go on. PM's network start (0x0046ef80) puts no handlers on; the launch does
+  (`net_register`, 0x0046f030). The check helpers (`program_net_mech_check`, `program_net_hostile_check`, and
+  `chat_session` for the chat and pose checks) started the game with `net_start` alone, so Bob's state was never routed
+  and no mech was made from his record. Fixed in the helpers (not the tests): on `pm` they call `net_register()` after
+  `net_start()`, as PM's launch does, and all three pass from the pm build.
+- `net_remote_pose_follows_the_states_c1mp1_headless`: its three handler checks pass with the helpers' fix. The two left
+  are timing, and the timing is PM's exe, proven (2026-11-27, temporary diagnostics restored from saved copies):
+  - Standing, the arms: PM aims at the point sent (0x004705e0, `test_pm_net_apply`; MW3 rebuilt the aim from a turn and a
+    range), and each arm eases toward it in 0x004681b0 (bit-checked in `test_pm_parts.py`) by exp(-aim_rate dt): the
+    def's aim_rate 3.0 at the test's 16 ms frames, 0.953 a frame, measured exactly (frames 58-60). The right arm's yaw
+    starts 0.15 rad off the helper's point, so after the 40-frame window 0.022 remains and the next 20 frames close 0.0137
+    of it: the 0.0128 measured. PM's clamp of the target before easing is not it (MW3's order gives 0.0156).
+  - Stopped, the gait: the remote's throttle eases by 0x004285d0 (`test_pm_controls.py`), the exe's Schraudolph exp,
+    which for small steps acts at 0.5/ln 2 = 0.72 of the def's rates (0.5 up, 1.3 down): 0.24 of the 0.6 sent after the
+    90 walking frames, 0.06 after the next 90. PM's gait 0x00418fc0 (`test_pm_gait.py`) keeps the walk while the throttle
+    times the speed factor is above the walk's low step, so the mech walks on through the window (3.9 m).
+  - The mech is not it: the Shadow Cat (main's roster 13) in place of PM's Mad Cat settles the same way.
+  So MW3's 40- and 70-frame windows don't fit PM on these inputs. Listed in `pm_left_out.h` once proven, with those four
+  tests as its cover.
+- `mission_c1m1_nav_waynet_headless`: PM by design, PM's names. PM's load asks for `waynet_<block>` in
+  `reader<block>.zbd` (`waynet_m1`, 0x00493a90); MW3's `c1/reader.zbd` has `waynet_1`, `waynet_ia1`,
+  `waynet_mp1`. No waynet, no nav points. No PM test checks the nav points in a mission (the builder is
+  `test_pm_ai_nets.py`'s).
+- `campaign_debriefing_scores_the_missions_objectives_headless`: PM by design, three ways. PM's Exit Mission is
+  command 0x79 (MW3's 0x71; PM's tests send 0x79), so the mission never ends. With 0x79 the debriefing shows MW3's
+  totals (101500, 2500) in PM's layout (no empty "Secondary Objectives" heading, a "Mechs Defeated" part), and its
+  CONTINUE does not lead to c1m2's briefing as MW3's does.
+- `net_pilot_respawns_c1mp1_headless`: PM by design, PM's rounds. Without respawning, PM's kill scoring (0x004721e0)
+  puts the victim out and one side left ends the round ("No more enemies"): the game goes to its menu 190 frames
+  after the death, before the dead list's call (7.1 s) that would set MW3's camera 4. Respawn on passes.
+  `test_pm_net_score.py` and `test_pm_net_respawn.py` check these against the exe.
+- `net_mobile_base_stations_c1mp1_headless`: PM by design for the test, and a gap in PM, since fixed. PM makes the
+  stations from the multiplayer pilot's own switch (+0xc4) and its MCB waynet (0x004938e0, `mission.cpp`), where MW3
+  uses the game's `ba8` and the nav waynet; the test sets `ba8` and counts the nav waynet's points. The gap was the
+  two hooks, `pilot_mp_player()` and `mp_mcbs()`, unported stubs on `pm`, so PM's multiplayer field base stations
+  were never made in mw3pm (fixed: The multiplayer stations, below). Since then the test sees PM's station on
+  MW3's c1mp1 MCB waynet (1) and none of its labels on the nav waynet. `pm_mp_stations_from_the_mobile_switch_c1mp1_headless`
+  covers it.
 
 ## MW3's tests rewritten for PM (`pm_moved.py`)
 
@@ -1943,3 +2005,43 @@ stand-in, runs MW3's reset 0x004e9590 instead, as every other PM_AI-gated piece 
 design, not a play difference; the test asserted PM's branch alone. It now checks the branch each mode takes (PM's
 stand-down and no MW3 reset under PM_AI=1; MW3's reset once and PM's record untouched under PM_AI=0), as
 `hit_an_ally`'s test does; a break taking PM's stand-down under PM_AI=0 is caught.
+
+## The pad throttle on PM (2026-11-27)
+
+`pm_pad_throttle_keeps_the_zero_point_through_the_screens_headless` (`tests/pm/test_pm_pad_throttle.cpp`, mw3pmtests) is
+main's issue #10 item 6 test on Pirate's Moon's table and data. A fake gamepad's left stick (source 2) is bound to Throttle
+through PM's real screens (Options, Controls, Assign Axis at OK, the controls' ACCEPT and its save, the options' ACCEPT),
+held at rest (0.5) and held part up (0.7), bug fixes on and off. Then c1m1 is started on the saved settings (the axis
+table cleared first, so the binding comes from the file) and the stick goes full up, back, full down, let go. Bound
+x -1 + 0 (or - 0.4): full ahead 1.00 (0.60), 0 at the zero point, full reverse -1.00, at rest 0 (-0.40). Each case runs
+in a forked child, seed 1. Passed under PM_AI=1 and PM_AI=0. Break (the gamepad exception taken out of the throttle's
+scaling, controls_menu.cpp): with bug fixes on the pad is bound as a lever (x -0.5 + 0.5), half throttle at rest,
+caught on every check; with them off nothing changes, as on main.
+
+## The multiplayer stations (2026-11-27)
+
+PM's mission load (0x00493a90, `mission.cpp`) makes the multiplayer field base stations when the multiplayer pilot's
+game (0x0047b710 on the pilot with 0: its game if a multiplayer one) has MOBILE_CHECKBOX set (its +0xc4, the port's
+`ba8`) and the MCB waynet exists ([0x0062fc18], made by PM's 0x004e57e0, MW3's `mcb_waynet_make` 0x004d5460, from the
+AI net compile's dock points). Both hooks were unported stubs on `pm`, so no station was ever made in mw3pm. PM's exe
+does make them: the multiplayer readers have arrangenodes, c1mp1 and c1mp2 have one static_mfb dock point each, and
+every PM world has `mfb_station01`. So this finishes the port; it is not a fix and has no fixes.md row.
+
+The station step (0x004938e0) differs from MW3's 0x00490950 in two places, now behind the table's `mp_stations_mark`
+(PM on): a point whose +0x0d is set is passed over, and each point given a station gets +0x0d set. +0x0d is the point
+constructor's last argument (0x0047c5f0), the net node's static_mfb (the port's `WaynetPoint::static_mfb`), which the
+dock reads (`dock_point_static`; `dock_count` hides the non-static points while no base is up). So the static base's
+point gets no station, and the points given one count as bases' points at the dock.
+
+Tests:
+- `test_pm_mission_load.py` now also draws MOBILE (0/1) and the MCB waynet (none or one) and checks the branch against
+  the exe: 200 cases x 2 entries identical, with station steps among them.
+- `test_pm_mp_stations.py` (new, `probe_pm_mp_stations.cpp`) runs 0x004938e0 against the port on random waynets
+  (0 to 24 points, some marked, the station model sometimes missing): each point's mark after, its station's number,
+  place, shown, in the world. 300 cases identical, 594 stations made, 536 marked points passed over.
+- `pm_mp_stations_from_the_mobile_switch_c1mp1_headless` (`tests/pm/test_pm_mp_stations.cpp`, mw3pmtests): c1mp1 on
+  PM's data as a network game, MOBILE on and off, forked children, seed 1. On: of 8 dock points, the static one is
+  passed over and 7 get `mfb_station_04`..`10`, each in the world, at its point, shown, every point marked. Off: no
+  station, only the static point marked. Passed under PM_AI=1 and PM_AI=0.
+- Breaks, each caught: `mp_mcbs()` returning none (no stations); the 0xc4 read mapped elsewhere (no stations);
+  `mp_stations_mark` off (the static point given a station; the differential differs at the first marked point).

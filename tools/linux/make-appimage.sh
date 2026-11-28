@@ -74,8 +74,17 @@ LD_LIBRARY_PATH="$PREFIX/lib:$LD_LIBRARY_PATH" "$TOOLS/linuxdeploy-x86_64.AppIma
 # The program as the entry (AppRun follows the desktop file's Exec).
 for p in mw3pm; do [ -x "$APPDIR/usr/bin/$p" ] || { echo "no $p in the AppDir" >&2; exit 1; }; done
 grep -qx 'Exec=mw3pm' "$APPDIR"/*.desktop || { echo "the AppImage does not start mw3pm" >&2; exit 1; }
+# The setup kit's settings file (rekit/settings.h) in the game's program_dir, the AppDir's top ($APPDIR, where the
+# menu reads it and the record is), so the record lists it.
+cp assets/setup-kit-settings.json "$APPDIR/setup-kit-settings.json"
 # No local path or user name in anything shipped (release.md, Privacy).
 python3 -I tools/deps/check_paths.py "$APPDIR" || exit 1
+# The record of the AppDir's files for the in-game menu's CHECK MY FILES (the kit's tools/files_manifest.py; the
+# games find it at $APPDIR), before the AppImage squashes the folder.
+python3 -I extern/re-setup-kit/tools/files_manifest.py "$APPDIR" || exit 1
+if ! grep -q '  setup-kit-settings.json$' "$APPDIR/rebuild-files.sha256"; then
+  echo "the record does not list setup-kit-settings.json" >&2; exit 1
+fi
 mkdir -p build-linux-pkg/dist
 OUT="build-linux-pkg/dist/PM-Rebuild-$VER-x86_64.AppImage"
 ARCH=x86_64 "$TOOLS/appimagetool-x86_64.AppImage" --runtime-file "$TOOLS/runtime-x86_64" "$APPDIR" "$OUT"

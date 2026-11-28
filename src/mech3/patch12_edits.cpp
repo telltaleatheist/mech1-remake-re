@@ -42,6 +42,8 @@ constexpr Edit kEdits[] = {
 //   player who finds the mouse too fast looks): an ON/OFF row under MOUSE
 //   SENSITIVITY, the column's pitch, its text and left arrow the column's
 //   (INVERT MOUSE Y's record), on the shell's textbox70.
+// - RUMBLE (issue #22, 2026-11-27; upgrades/settings/rumble.h): the same
+//   ON/OFF row under RAW MOUSE, RAW MOUSE's record 26 lower.
 // - UPGRADES (2026-11-07): a button under CONTROLS inside its bracket,
 //   GRAPHICS & AUDIO's record, and its page, UPGRADES_DIALOG: the game
 //   options' background, ACCEPT and BACK, the credits' frame (option1_lines'
@@ -64,8 +66,12 @@ constexpr Edit kOurs[] = {
      R"(("POSITION" (250 363) "BITMAP" ("sliderunfilled") "LABEL" ("M O U S E   S E N S I T I V I T Y" "offset" (-185 1) "font" ("ia_dark_grey")) "ROLLOVER" () "ACTIVATE" ("SOUND" ("menu_select" 1.0)) "FILLBITMAP" ("sliderfilled")))"},
     {"zbd/reader.zbd", "dlgoptions.zrd", Insert, R"(GAME_OPTION_DIALOG/PRIMITIVES/LINES1)", R"("RAW_MOUSE_BOX")",
      R"(("BITMAP" ("textbox70") "POSITION" (242 389)))"},
+    {"zbd/reader.zbd", "dlgoptions.zrd", Insert, R"(GAME_OPTION_DIALOG/PRIMITIVES/RAW_MOUSE_BOX)", R"("RUMBLE_BOX")",
+     R"(("BITMAP" ("textbox70") "POSITION" (242 415)))"},
     {"zbd/reader.zbd", "dlgoptions.zrd", Insert, R"(GAME_OPTION_DIALOG/BUTTONS/MOUSE_SENSITIVITY)", R"("RAW_MOUSE")",
      R"(("POSITION" (245 389) "LABEL" (("" "offset" (11 5) "font" ("ia_small_green")) ("R A W   M O U S E" "offset" (-180 5) "font" ("ia_dark_grey"))) "BITMAP" () "ROLLOVER" () "ACTIVATE" ("SOUND" ("menu_select")) "TOGGLE_LEFT" ("POSITION" (-2 4) "BITMAP" ("arrowleft") "ROLLOVER" ("SOUND" ("arrow_rollover") "BITMAP" ("arrowleft_r")) "ACTIVATE" ("SOUND" ("box_rollover") "BITMAP" ("arrowleft"))) "TOGGLE_RIGHT" ("POSITION" (82 4) "BITMAP" ("arrowright") "ROLLOVER" ("SOUND" ("arrow_rollover") "BITMAP" ("arrowright_r")) "ACTIVATE" ("SOUND" ("box_rollover") "BITMAP" ("arrowright")))))"},
+    {"zbd/reader.zbd", "dlgoptions.zrd", Insert, R"(GAME_OPTION_DIALOG/BUTTONS/RAW_MOUSE)", R"("RUMBLE")",
+     R"(("POSITION" (245 415) "LABEL" (("" "offset" (11 5) "font" ("ia_small_green")) ("R U M B L E" "offset" (-180 5) "font" ("ia_dark_grey"))) "BITMAP" () "ROLLOVER" () "ACTIVATE" ("SOUND" ("menu_select")) "TOGGLE_LEFT" ("POSITION" (-2 4) "BITMAP" ("arrowleft") "ROLLOVER" ("SOUND" ("arrow_rollover") "BITMAP" ("arrowleft_r")) "ACTIVATE" ("SOUND" ("box_rollover") "BITMAP" ("arrowleft"))) "TOGGLE_RIGHT" ("POSITION" (82 4) "BITMAP" ("arrowright") "ROLLOVER" ("SOUND" ("arrow_rollover") "BITMAP" ("arrowright_r")) "ACTIVATE" ("SOUND" ("box_rollover") "BITMAP" ("arrowright")))))"},
     {"zbd/reader.zbd", "dlgoptions.zrd", Insert, R"(GAME_OPTION_DIALOG/BUTTONS/CONTROLS_CFG)", R"("UPGRADES")",
      R"(("POSITION" (400 160) "BITMAP" ("circlebtn_tiny") "LABEL" ("U P G R A D E S" "offset" (22 8) "font" ("ia_small_green")) "RADIUS" (10) "MAXRADIUS" (100) "ROLLOVER" ("SOUND" ("menu_rollover")) "ACTIVATE" ("SOUND" ("menu_select"))))"},
     {"zbd/reader.zbd", "dlgoptions.zrd", Insert, R"(GFX_AUDIO_OPTIONDIALOG)", R"("UPGRADES_DIALOG")",

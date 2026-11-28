@@ -108,6 +108,9 @@ class GameOptionsScreen : public MenuScreen {
   OnOffCycle raw_mouse;              // ours: RAW_MOUSE under it (issue #15; with options_sensitivity_slider)
   ztwod::Image raw_mouse_box{0};     // RAW_MOUSE_BOX, the row's box
   bool has_raw_mouse = false;        // bound
+  OnOffCycle rumble;                 // ours: RUMBLE under RAW_MOUSE (issue #22, upgrades/settings/rumble.h)
+  ztwod::Image rumble_box{0};        // RUMBLE_BOX, the row's box
+  bool has_rumble = false;           // bound
   UpgradesButton upgrades;           // ours: UPGRADES (options_upgrades_page)
   bool has_upgrades = false;         // bound
 };

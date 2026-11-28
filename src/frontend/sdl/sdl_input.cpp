@@ -558,7 +558,8 @@ void SdlInput::refresh() {
   const bool absolute = hold.absolute;
   if (absolute && !absolute_) cursor_moved_ = false;
   absolute_ = absolute;
-  const bool want = hold.want;
+  const bool menu = menu_up && menu_up();  // the setup menu up: the mouse let go (decide_mouse's hold, else)
+  const bool want = !menu && hold.want;
   // Playtest W19: SDL's own state, not only ours; a relative mode refused or
   // dropped (a fullscreen switch, the focus) is asked for again, else the
   // system's cursor showed at the centre the game puts it each frame.
@@ -580,7 +581,7 @@ void SdlInput::refresh() {
     if (!free) released_ = false;  // out of the editor: held again
   }
   // The game editor's pointer is the system's cursor.
-  const bool hide = (absolute_ && !free_) || captured_;
+  const bool hide = !menu && ((absolute_ && !free_) || captured_);
   if (window && (hide != cursor_hidden_ || SDL_CursorVisible() == hide)) {
     if (hide) SDL_HideCursor();
     else SDL_ShowCursor();

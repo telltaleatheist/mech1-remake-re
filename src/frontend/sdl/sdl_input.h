@@ -116,6 +116,9 @@ class SdlInput : public platform::Input {
   // and zInput's mouse is put where it is, so the panel's lit row, the net
   // editor's picks and the dialogs all point where the player sees.
   std::function<bool()> pointer_free;
+  // Ours: the in-game setup menu up (rekit/sdl/game_menu.h): the mouse let go and the system's cursor shown, in a
+  // mission or a menu, until it closes.
+  std::function<bool()> menu_up;
   bool pointer_is_free() const { return free_; }  // as of the last refresh
   // FIX (A), playtest W4 (sdl_focus.h; docs/input.md, The focus is checked):
   // the window's real focus, asked at every refresh, so a window that came up

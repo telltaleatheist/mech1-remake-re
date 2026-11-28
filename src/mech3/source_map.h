@@ -34,6 +34,7 @@ struct Found {
   std::string data_track;      // a cue's data track's entry (or file)
   int raw_offset = 16;         // the data track's sectors (2352: 16 or 24; 2048: 0)
   bool raw = false;
+  std::string compact;         // a compact original's words (its manifest: mech3/compact.h), else ""
   std::string summary;         // what to tell the player
   std::string detail;          // what was read, for the log
   bool cancelled = false;      // the look was stopped (MapProgress)
@@ -56,5 +57,8 @@ Found from_kit(const rekit::Found& k);
 
 // Plain words for a game found, for the player.
 std::string game_words(const Found& f);
+// The game on the disc in a drive (2026-11-27, --status's look at the drives): its DATA1.HDR's file list as
+// map_source reads it (a few KB, nothing else); kUnknown without one or when it holds neither game.
+Found::Game disc_game(const std::string& drive);
 
 }  // namespace mech3::source

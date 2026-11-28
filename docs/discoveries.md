@@ -83,6 +83,17 @@ From the heat update at 0x4192f0 (details: `heat.md`).
   mech actually shuts off once its animation reaches a stop pose (states 1, 12
   or 13), and a power-down asked for while a flag at +0x584 is set (likely
   mid-air) is ignored.
+- **Shut down on the move and your torso and free look keep turning until you
+  stop.** The power-down zeroes the throttle, the leg turn and the pitch, but
+  not the torso twist or the free look. From the moment you ask, the game stops
+  reading your controls, so the last twist and look you gave carry on (a mouse
+  stroke keeps going, a held key stays held) until the legs come to a stand and
+  the mech actually shuts off, several seconds at speed; the torso stops at its
+  twist limit. Free look can be switched on while shut down, but the look
+  stays still: every control is held at zero until you power up. The legs
+  coast to a stop in about a second. (From the code: the stop 0x426c10, the
+  controls' update 0x426960, the player's 0x427d60. Reported on the rebuild as
+  issue #10; kept as the original.)
 - **Heat can't kill you in multiplayer.** In multiplayer, heat is always on,
   but reaching critical heat never destroys your torso: it only shuts you down
   and resets your heat. In campaign, instant action and training, critical heat
@@ -3144,7 +3155,7 @@ From the view and its cameras (0x40aca0, 0x430e70; details: `view.md`).
   down at a field base and repair) did nothing until the game was closed and
   started again. A command put only on a joystick or mouse button was skipped
   the same way. (From the code as ported: 0x0051c2b0, 0x00427280. Reported on
-  the rebuild as issue #4; fixed in the rebuild.)
+  the rebuild as issues #4 and #10; fixed in the rebuild.)
 
 - **Save your stick setup, unplug the stick, and the mech drives itself.** The game
   only forgets the stick's axes when your controls file exactly matches the
@@ -4581,6 +4592,11 @@ The screen after the pilot for INSTANT ACTION, 0x00488bc0 (details:
   1999.** Its first words are "3:33" "PM" "9/13/1999", before the dialogs, a
   date and time someone left in it. The game never minds: it finds each
   dialog by its name.
+
+- **In Pirate's Moon multiplayer, a mobile field base never sets up on the map's fixed repair point.** With
+  mobile field bases allowed, the game puts a station at each of the map's base points except the fixed repair
+  point, and uses only the others; MechWarrior 3's code has no such exception. (0x004938e0; docs/pm-tests.md, The
+  multiplayer stations.)
 
 - **In Pirate's Moon only you can fall over from a hard landing.** In
   MechWarrior 3 any mech that came down hard or fast sideways could fall. In

@@ -23,6 +23,7 @@ import test_pm_zar  # noqa: E402
 LOAD_WORLD, SETUP = 0x492830, 0x493ca0
 CURRENT = 0x9c
 NEW_BASE = 0x2c200000
+MP_GAME, MCBS = NEW_BASE + 0x9000, 0x62fc18  # 0x0047b710's answer; the MCB waynet, read by the station step's caller
 # PM's address, the port's key (MW3's address where the function has a twin), arguments, bytes popped.
 # In PM's build these are plain stack calls where MW3's passed registers.
 CALLS = [
@@ -55,7 +56,7 @@ SETUP_CALLS = [
     (0x495b30, '0x00491de0', 'zs0,zs1', 8), (0x4f9900, '0x004e7b40', '', 0), (0x5cb140, '0x005a84c0', 'c,zs0', 4),
     (0x4ce410, '0x004c3240', '', 0), (0x413e60, '0x004135c0', 'c,zs0,zs1', 8), (0x4b8c20, '0x004b4ab0', 'c', 0),
     (0x4a19c0, '0x0049e810', 'sb0', 0), (0x4aabe0, '0x004a76b0', 'zs0,s1', 0), (0x524b50, '0x0050b450', 'zs0', 0),
-    (0x47b6e0, '0x0047b6e0', 's0', 4), (0x47b710, '0x0047b710', 's0', 4), (0x590a70, '0x0056f6f0', 'zs0', 0),
+    (0x47b6e0, '0x0047b6e0', 's0', 4), (0x47b710, '0x0047b710', 's0', 4), (0x4938e0, '0x00490950', 's0', 0), (0x590a70, '0x0056f6f0', 'zs0', 0),
     (0x4e3250, '0x004d2e20', '', 0), (0x4e3620, '0x004d31d0', '', 0), (0x4f35c0, '0x004e2120', '', 0),
     (0x4e8ae0, '0x004d8610', 'c', 0), (0x533b90, '0x0051a300', '', 0), (0x40f900, '0x0040f040', '', 0),
     (0x4101c0, '0x0040f890', '', 0), (0x4e4f60, '0x004d4b30', '', 0), (0x521870, '0x00508c10', 's0,s1,s2,s3,s4', 0),
@@ -103,7 +104,7 @@ def make_script(case):
         'game.vt+0x2c': case['type'], '0x0040d7b0': 3, '0x0040d750': 2,
         'game.vt+0x54': case['index'], 'game.vt+0x4c': case['number'], 'game.vt+0x28': case['saved'],
         'game.vt+0x54dir': 1, 'game.vt+0x58': lambda n, a: 2 + n, '0x0050b450': case['anims'],
-        '0x0047b710': NEW_BASE + 0x9000, '0x0056f6f0': lambda n, a: 0x9000 + n,
+        '0x0047b710': MP_GAME, '0x0056f6f0': lambda n, a: 0x9000 + n,
         '0x0040cf20': case['cheats'][0], '0x0040cf80': case['cheats'][1], '0x0040cfc0': case['cheats'][2],
         '0x004af290': 7, '0x005799f0': 8, '0x00579040': 9, '0x00576040': 10,
     }
@@ -153,6 +154,8 @@ class Emu(test_pm_zar.Emulated):
         self.w32(hud_vt + 0x7c, self.fn_ptr(lambda c: t.handle('hudline.vt+0x7c', [(c.arg(0) - HUD) // HUD_STEP])))
         for i in range(25):
             self.w32(HUD + HUD_STEP * i, hud_vt)
+        self.w8(MP_GAME + 0xc4, case['mobile'])  # the multiplayer game's MOBILE_CHECKBOX
+        self.w32(MCBS, case['mcbs'])
         self.w8(TURRETS, case['turrets'])
         self.w8(NETWORK, case['network'])
         view = case['new'][2]
@@ -274,6 +277,8 @@ def run_port(probe, case, entry):
     probe.probe_mission_poke(0x608e41, case['rgb'])
     probe.probe_mission_poke(0x62cc58, case['no_clutter'])
     probe.probe_mission_set((ctypes.c_int32 * 4)(*case['rect']), case['texmem'][0], case['texmem'][1], -1, case['current'])
+    probe.probe_mission_poke(MP_GAME + 0xc4, case['mobile'])
+    probe.probe_mission_poke(MCBS, case['mcbs'])
     probe.probe_mission_poke(0x608e3a, case['turrets'])
     probe.probe_mission_poke(0x608e45, case['network'])
     view = case['new'][2]
@@ -315,13 +320,15 @@ def make_case(seed):
     }
     if r.random() < 0.08:
         case['current'] = r.choice([index, (index + 1) % 6])
+    # Multiplayer's stations (0x004938e0): the game's MOBILE_CHECKBOX and the MCB waynet, either missing.
+    case['mobile'], case['mcbs'] = r.choice([0, 1, 1]), r.choice([0, 0x7a00, 0x7a00])
     return case
 
 
 def main():
     probe = test_pm_zar.load_pm_probe()
     count = int(sys.argv[1]) if len(sys.argv) > 1 else 200
-    calls = 0
+    calls = stations = 0
     for seed in range(count):
         case = make_case(seed)
         for entry in ('world', 'setup'):
@@ -336,8 +343,11 @@ def main():
                 diff = {str(k): (hex(a[2][k]), hex(b[2].get(k, 0))) for k in a[2] if a[2][k] != b[2].get(k)}
                 raise SystemExit(f'{name}: memory differs (exe, port): {diff}')
             calls += len(a[1])
+            stations += sum(1 for c in a[1] if c[0] == '0x00490950')
     pm_floors.floors(cases=(count, 200), calls=(calls, 40000))
-    print(f'ok: {count} cases x 2 entries, {calls} calls identical')
+    if count >= 200 and stations == 0:
+        raise SystemExit('no case reached the multiplayer stations (0x004938e0)')
+    print(f'ok: {count} cases x 2 entries, {calls} calls identical, {stations} station steps')
 
 
 if __name__ == '__main__':

@@ -9,6 +9,7 @@
 #include "gamez/zreader/zreader.h"
 #include "gamez/zutil/zfix.h"
 #include "gamez/ztwod/twod_host.h"
+#include "upgrades/settings/rumble.h"
 #include "upgrades/settings/upgrades.h"
 #include "mech3/options.h"
 #include "mech3/controls_cfg.h"
@@ -66,7 +67,7 @@ void GameOptionsScreen::UpgradesButton::on_left_up() {
 GameOptionsScreen::GameOptionsScreen(Engine& e, Handle s)
     : MenuScreen(e, s), accept(e), back(e), difficulty(e), camera(e), invincible(e, 1), infinite_ammo(e, 1),
       heat(e, 0), torso(e), throttle(e), jump_jets(e), invert_y(e), gfx_audio(e, 0x60986c),
-      controls(e, 0x609870), upgrades(e), raw_mouse(e) {
+      controls(e, 0x609870), upgrades(e), raw_mouse(e), rumble(e) {
   target_buffers(e);
   const bool moving = !e.fast_menu();
   if (load("dlgOptions.zrd", "GAME_OPTION_DIALOG", moving)) {
@@ -74,6 +75,7 @@ GameOptionsScreen::GameOptionsScreen(Engine& e, Handle s)
     bind_primitive(&lines, "LINES");
     bind_primitive(&lines1, "LINES1");
     if (options_sensitivity_slider()) bind_primitive(&raw_mouse_box, "RAW_MOUSE_BOX");  // ours
+    if (options_sensitivity_slider()) bind_primitive(&rumble_box, "RUMBLE_BOX");        // ours
     bind_button(&accept, "ACCEPT");
     bind_button(&back, "BACK");
     bind_button(&gfx_audio, "GFX_AUDIO_OPTIONS");
@@ -85,6 +87,7 @@ GameOptionsScreen::GameOptionsScreen(Engine& e, Handle s)
       remove(&lines);
       remove(&lines1);
       remove(&raw_mouse_box);
+      remove(&rumble_box);
       accept.set_baked(true);
       back.set_baked(true);
       gfx_audio.set_baked(true);
@@ -102,6 +105,7 @@ GameOptionsScreen::GameOptionsScreen(Engine& e, Handle s)
     bind_button(&invert_y, "CMD_INVERT_MOUSE_Y");
     if (options_sensitivity_slider()) has_sensitivity = bind_button(&sensitivity, "MOUSE_SENSITIVITY");  // ours
     if (options_sensitivity_slider()) has_raw_mouse = bind_button(&raw_mouse, "RAW_MOUSE");               // ours
+    if (options_sensitivity_slider()) has_rumble = bind_button(&rumble, "RUMBLE");                        // ours
     unload();
   }
   set_flags_all(0);
@@ -134,6 +138,7 @@ void GameOptionsScreen::apply(int32_t to_options) {
     invert_y.select(e.mouse_accel_y() < 0.0f);
     if (has_sensitivity) sensitivity.set_value(slider_of_sensitivity(std::fabs(e.mouse_accel_x())));
     if (has_raw_mouse) raw_mouse.select(zfix::options().raw_mouse);
+    if (has_rumble) rumble.select(upgrades::rumble::on());
     return;
   }
   e.set_game_intensity(difficulty.selected_value());
@@ -147,6 +152,10 @@ void GameOptionsScreen::apply(int32_t to_options) {
   if (has_raw_mouse) {  // ours: at once (sdl_input.h, raw_mouse), saved to mw3.cfg
     zfix::options().raw_mouse = raw_mouse.selected_value() != 0;
     if (auto& save = options_upgrades_saver()) save(zfix::kRawMouseKey, zfix::options().raw_mouse);
+  }
+  if (has_rumble) {  // ours (issue #22): at once (off stops a playing effect), saved to mw3.cfg
+    upgrades::rumble::set(rumble.selected_value() != 0);
+    if (auto& save = options_upgrades_saver()) save(upgrades::rumble::kKey, upgrades::rumble::on());
   }
   if (has_sensitivity) {  // ours: X and Y's magnitude from the slider, Y's sign from the invert box
     const float s = sensitivity_of_slider(sensitivity.value);

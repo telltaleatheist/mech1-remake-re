@@ -184,6 +184,9 @@ class SdlPump : public platform::MessagePump {
   // Ours: the game editor's ImGui sees each event first while it is up; true
   // keeps the event from zInput (editor_imgui.h). Window events go on as ever.
   std::function<bool(const SDL_Event&)> overlay_event;
+  // Ours: true while the in-game setup menu holds the game paused (rekit/sdl/game_menu.h): the focus coming back
+  // does not wake the game under it (the menu's closing does, as the focus then stands).
+  std::function<bool()> hold_inactive;
 
   void handle(const SDL_Event& e);  // public for the tests
 

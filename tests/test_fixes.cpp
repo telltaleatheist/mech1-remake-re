@@ -2420,6 +2420,17 @@ TEST(fix_group_release_lets_every_loop_go) {
 
 // Issue #19 (ours): two screens holding a sound set (a debriefing, then the salvage): the first one gone leaves it to
 // the second, the last one gone unloads it; a screen asked twice holds it once; none with SMALL FIXES off.
+TEST(menu_sounds_list_arrows_click) {
+  // The salvage and debriefing lists' arrows name lab_select, defined nowhere: with SMALL FIXES the salvage rows'
+  // click (box_rollover), not the mech lab's icon_select; silent as the original without.
+  const bool was = zfix::options().small_fixes;
+  zfix::options().small_fixes = true;
+  EXPECT(upgrades::menu_sound_for("lab_select") && std::string(upgrades::menu_sound_for("lab_select")) == "box_rollover");
+  zfix::options().small_fixes = false;
+  EXPECT(upgrades::menu_sound_for("lab_select") == nullptr);
+  zfix::options().small_fixes = was;
+}
+
 TEST(menu_sounds_holds_are_counted_between_screens) {
   zsnd::State& st = zsnd::state();
   const std::vector<zsnd::Set*> sets_was = st.sets;

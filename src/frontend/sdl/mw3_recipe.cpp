@@ -162,6 +162,7 @@ rekit::sdl::Game mw3_recipe(const RecipePlaces& at) {
   };
   g.describe = [](const rekit::Found& k) {  // the launcher's look_at words for Pirate's Moon
     mw3_seen = false;
+    if (const src::Found f = ours(k); !f.compact.empty()) return f.compact + ".";  // its manifest's name (docs/compact.md)
     return std::string(k.kind == rekit::Found::kInstall ? "An installed copy of Pirate's Moon." : "The Pirate's Moon disc.");
   };
   g.recognise = [](const std::string&) {

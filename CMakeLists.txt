@@ -109,6 +109,7 @@ add_library(mw3core STATIC
   src/mech3/patch_import.cpp
   src/mech3/disc_install.cpp
   src/mech3/source_map.cpp
+  src/mech3/compact.cpp
   src/mech3/source_install.cpp
   src/mech3/game_setup.cpp
   src/gamez/zutil/zutl_zar.cpp
@@ -417,6 +418,8 @@ add_library(mw3core STATIC
   src/upgrades/mods/installer_read.cpp
   src/upgrades/settings/upgrades.cpp
   src/upgrades/kits/kit_hooks.cpp
+  src/upgrades/settings/rumble.cpp
+  src/upgrades/settings/reset.cpp
   src/upgrades/valve_map/valve_map.cpp
   src/upgrades/mods/mod_report.cpp
   src/upgrades/mods/found_worlds.cpp
@@ -860,6 +863,8 @@ if(MW3_BUILD_PM)
     tests/pm/test_pm_salvage_world.cpp
     tests/pm/test_pm_chat_reset.cpp
     tests/pm/test_pm_options.cpp
+    tests/pm/test_pm_mp_stations.cpp  # the multiplayer stations from MOBILE and the MCB waynet (PM 0x004938e0)
+    tests/pm/test_pm_pad_throttle.cpp  # issue #10 item 6 (main's test_program.cpp issue10_pad_throttle_*) on PM
     tests/pm/test_pm_sound_range.cpp
     tests/pm/test_pm_hud.cpp
     tests/pm/test_pm_volley.cpp
@@ -988,6 +993,7 @@ if(MW3_BUILD_PM)
   target_sources(pmprobe PRIVATE tests/probe_pm_object_lod.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_scene_children.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_camera_moved.cpp)
+  target_sources(pmprobe PRIVATE tests/probe_pm_mp_stations.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_top_cameras.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_screen_modes.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_mech_sounds.cpp)
@@ -1194,6 +1200,14 @@ if(SDL3_FOUND)
                          COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_RUNTIME_DLLS:mw3> $<TARGET_FILE_DIR:mw3>
                          COMMAND_EXPAND_LISTS)
     endif()
+    # The setup kit's settings file (rekit/settings.h; docs/in-game-menu.md), beside mw3 as in every package, so a
+    # development run reads it too; copied again whenever it changes.
+    set(MW3_KIT_SETTINGS_OUT ${CMAKE_BINARY_DIR}/setup-kit-settings.json)
+    add_custom_command(OUTPUT ${MW3_KIT_SETTINGS_OUT}
+                       COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/assets/setup-kit-settings.json ${MW3_KIT_SETTINGS_OUT}
+                       DEPENDS ${CMAKE_SOURCE_DIR}/assets/setup-kit-settings.json)
+    add_custom_target(mw3_kit_settings DEPENDS ${MW3_KIT_SETTINGS_OUT})
+    add_dependencies(mw3 mw3_kit_settings)
     # The launcher (docs/launcher.md, The two programs; games-layout.md): the
     # main icon, its own program; MECHWARRIOR 3 starts mw3 beside it.
     add_executable(mw3launcher
@@ -1301,6 +1315,14 @@ if(SDL3_FOUND)
         target_compile_definitions(mw3pm PRIVATE MW3PM_GAME_DIR="${MW3PM_GAME_DIR}" MW3_GAME_DIR="${MW3PM_GAME_DIR}"
                                                   MW3_ASSETS_DIR="${PROJECT_SOURCE_DIR}/assets")
       endif()
+      # The setup kit's settings file (rekit/settings.h; docs/in-game-menu.md), beside mw3pm as in every package, so a
+      # development run reads it too; copied again whenever it changes. (MW3's rule above is mw3's, off on `pm`.)
+      set(MW3PM_KIT_SETTINGS_OUT ${CMAKE_BINARY_DIR}/setup-kit-settings.json)
+      add_custom_command(OUTPUT ${MW3PM_KIT_SETTINGS_OUT}
+                         COMMAND ${CMAKE_COMMAND} -E copy_if_different ${CMAKE_SOURCE_DIR}/assets/setup-kit-settings.json ${MW3PM_KIT_SETTINGS_OUT}
+                         DEPENDS ${CMAKE_SOURCE_DIR}/assets/setup-kit-settings.json)
+      add_custom_target(mw3pm_kit_settings DEPENDS ${MW3PM_KIT_SETTINGS_OUT})
+      add_dependencies(mw3pm mw3pm_kit_settings)
     endif()
     # The Indeo helper's stand-in for the tests (tools/indeo; the real
     # mw3indeo.exe is 32-bit Windows, built by tools/windows/build.cmd).
@@ -1325,6 +1347,8 @@ if(SDL3_FOUND)
       tests/test_net_upnp.cpp
     )
     target_link_libraries(mw3sdltests PRIVATE mw3text mw3sdl mw3core SDL3::SDL3)
+    # The kit's test keys (signed catalogs in the original files' check; Monocypher is in rekit).
+    target_include_directories(mw3sdltests PRIVATE extern/re-setup-kit/tests extern/re-setup-kit/third_party)
     target_compile_definitions(mw3sdltests PRIVATE MW3_GAME_DIR="${MW3_GAME_DIR}"
                                                  MW3_TEST_TMP_ROOT="${PROJECT_BINARY_DIR}"
                                                  MW3_BIN="$<TARGET_FILE:mw3>"
@@ -1343,13 +1367,15 @@ if(SDL3_FOUND)
       add_executable(mw3pmsdltests tests/main.cpp tests/test_quiet_music.cpp tests/test_hires_draw.cpp tests/test_hires_readbacks.cpp tests/test_hires_text.cpp tests/test_sdl_frontend.cpp tests/test_sdl_new_world.cpp src/frontend/sdl/sdl_update.cpp src/frontend/sdl/sdl_games.cpp src/frontend/sdl/sdl_catalog.cpp src/frontend/sdl/launcher_own.cpp tests/test_net_enet.cpp tests/test_net_upnp.cpp
                      src/frontend/sdl/sdl_restart.cpp src/frontend/sdl/win_cmdline.cpp tests/test_win_cmdline.cpp tests/test_log_start.cpp)
       target_link_libraries(mw3pmsdltests PRIVATE mw3text mw3sdl pmcore mw3core SDL3::SDL3)
+      target_include_directories(mw3pmsdltests PRIVATE extern/re-setup-kit/tests extern/re-setup-kit/third_party)  # the kit's test keys
       target_compile_definitions(mw3pmsdltests PRIVATE MW3_PM_SUITE=1 MW3_GAME_DIR="${MW3PM_GAME_DIR}"
                                                        MW3_TEST_TMP_ROOT="${PROJECT_BINARY_DIR}"
                                                        MW3_BIN="$<TARGET_FILE:mw3pm>"
                                                        MW3PM_BIN="$<TARGET_FILE:mw3pm>"  # b6: mw3pm's own find screen's tests
                                                        MW3_LAUNCHER_BIN=""
                                                        MW3_FAKE_INDEO=""
-                                                       MW3_IMPORT_BIN="")
+                                                       MW3_IMPORT_BIN=""
+                                                       MW3_ASSETS_FOR_TESTS="${CMAKE_SOURCE_DIR}/assets")
       add_dependencies(mw3pmsdltests mw3pm)
     endif()
   else()

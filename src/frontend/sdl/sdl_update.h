@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "rekit/update.h"
 #include "upgrades/update/update.h"
 
 namespace sdlfe {
@@ -84,6 +85,22 @@ struct Installed {
 Installed install_update(const std::string& download);
 // The new launcher started on its own (no stdio of ours); false when it could not be.
 bool start_detached(const std::string& program);
+// Ours (the in-game setup menu's hooks, rekit/sdl/game_menu.h; 2026-11-27): how this mw3 was installed, from what
+// the updater already reads of its package (running_package: the Mac app, Linux's $APPIMAGE), Windows' Setup by its
+// uninstaller beside the program (for every user under Program Files, else this user's), else an unpacked folder; a
+// build that is not a player's package (MW3_PACKAGE off) is a development one. MW3_INSTALL_KIND names one in checks.
+rekit::InstallKind install_kind();
+// The release file an install of this kind updates from (the in-game menu's UPDATES, rekit/sdl/update.h's
+// UpdateRecipe::file, "{tag}" for the tag): on `pm`, Pirate's Moon's own release files, as its packaging names them
+// (PM-Rebuild-*, mw3pm-*-win64.zip; the launcher's catalog names the same). Windows' Setup installs take the new
+// Setup, an unpacked Windows folder the zip, the Mac the disk image, Linux
+// the AppImage (it has no folder package: an unpacked Linux folder is offered the AppImage's release page).
+std::string update_file(rekit::InstallKind kind);
+// Where this program's package keeps its rebuild-files.sha256 (tools/files_manifest.py at packaging), the folder it
+// covers: the Mac app's Contents/Resources (the app's signature seals the rest), the AppImage's mounted folder
+// ($APPDIR), else the program's own folder. "" when unknown.
+std::string program_dir();
+
 // A program run to its end, its arguments as an array: its exit code (-1 not
 // started or past `seconds`), its output and errors in `said`.
 int run_program(const std::vector<std::string>& args, int seconds, std::string* said);

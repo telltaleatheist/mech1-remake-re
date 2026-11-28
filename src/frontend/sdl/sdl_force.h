@@ -43,6 +43,8 @@ class SdlForceDevice : public platform::ForceDevice {
     uint32_t ms = 0;
   };
   Rumble last() const { return last_; }
+  // Ours: sets the rumble again from what is playing (RUMBLE switched: upgrades/settings/rumble.h).
+  void refresh() { apply(); }
   uint64_t (*now_ms)() = [] { return static_cast<uint64_t>(SDL_GetTicks()); };
 
  private:

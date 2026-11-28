@@ -67,6 +67,8 @@ rem The menu's two sounds (ours: assets\launcher\README.md).
 copy /y assets\launcher\click.wav "%DIST%\assets\launcher\" >nul || exit /b 1
 copy /y assets\launcher\hover.wav "%DIST%\assets\launcher\" >nul || exit /b 1
 copy /y tools\windows\dist\THIRD-PARTY.txt "%DIST%\" >nul || exit /b 1
+rem The setup kit's settings file (rekit/settings.h) beside mw3pm.exe, the game's program_dir, so the record lists it.
+copy /y assets\setup-kit-settings.json "%DIST%\" >nul || exit /b 1
 if exist LICENSE copy /y LICENSE "%DIST%\LICENSE.txt" >nul
 rem libarchive, zlib and liblzma: linked into mw3.exe, their licences from
 rem tools\windows\build_deps_archive.cmd's prefix; SDL3_ttf's and its FreeType's from build_deps_ttf.cmd's.
@@ -105,6 +107,10 @@ copy /y extern\re-setup-kit\third_party\miniz\LICENSE "%DIST%\licenses\miniz\" >
 rem Every DLL the programs load is in the folder or part of Windows; no game file is.
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\windows\check_dist.ps1 "%DIST%" || exit /b 1
 
+rem The record of the folder's files for the in-game menu's CHECK MY FILES (the kit's files_manifest.ps1: no Python
+rem here), before the zip and the setup are made from it; the setup's own uninstaller is not in it.
+powershell -NoProfile -ExecutionPolicy Bypass -File extern\re-setup-kit\tools\files_manifest.ps1 "%DIST%" || exit /b 1
+findstr /l /c:"  setup-kit-settings.json" "%DIST%\rebuild-files.sha256" >nul || (echo the record does not list setup-kit-settings.json & exit /b 1)
 tar -a -c -f "build-win\dist\%NAME%.zip" -C build-win\dist "%NAME%" || exit /b 1
 
 rem The installer, PM-Rebuild-Setup-<version>.exe (tools\windows\installer.iss),

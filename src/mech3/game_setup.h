@@ -100,6 +100,7 @@ struct DiscSource {
 };
 // The mounted drives holding an MW3 disc (DATA1.HDR at the root): Windows'
 // CD drives, macOS's /Volumes, Linux's /media/$USER and /run/media/$USER.
+// MW3_DISC_DRIVES (checks): a folder whose folders stand in for the drives.
 std::vector<DiscSource> find_discs();
 
 // Whether `dir` holds MechWarrior 3 (zbd/reader.zbd), and which data
@@ -107,6 +108,15 @@ std::vector<DiscSource> find_discs();
 // `pirates_moon`: start_check's, with its data's version ("1.0", "unknown",
 // "incomplete").
 Result check_install(const std::string& dir, const std::string& write_dir, bool pirates_moon = false);
+// Ours (the in-game menu's CHECK MY FILES, 2026-11-27): an install with no record of its files (rekit/manifest.h;
+// installed before records were kept) checked by what MechWarrior 3 knows of itself: start_check's problems, then
+// each of the 28 data files (data_version.h) against 1.0's and 1.2's size and CRC, `write_dir`/patch12's copy first
+// (a 1.0 install's patch). Each problem in plain words, none when the files are as one of the two versions has them.
+std::vector<std::string> own_check(const std::string& dir, const std::string& write_dir);
+// Pirate's Moon's CHECK MY FILES (ours, 2026-11-27): start_check's problems, then each of its 1.0's main data files
+// (check_install's table, as mw3pm checks at its start) by size and CRC, `write_dir`'s copy first (the disc's sounds
+// are added there). None when they are all as Pirate's Moon 1.0 has them.
+std::vector<std::string> pm_own_check(const std::string& dir, const std::string& write_dir);
 // The game and its data's version in the summaries' words ("MechWarrior 3 1.2", "MechWarrior 3: Pirate's Moon").
 std::string game_version_words(const std::string& version, bool pirates_moon = false);
 

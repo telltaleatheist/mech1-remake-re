@@ -381,7 +381,7 @@ void SdlPump::handle(const SDL_Event& e) {
       break;
     case SDL_EVENT_WINDOW_FOCUS_GAINED:
       if (focus_changed) focus_changed(true);
-      if (app_ && !app_->active()) app_->on_window_activate(1);  // WA_ACTIVE
+      if (app_ && !app_->active() && !(hold_inactive && hold_inactive())) app_->on_window_activate(1);  // WA_ACTIVE
       break;
     case SDL_EVENT_WINDOW_FOCUS_LOST:
       if (focus_changed) focus_changed(false);

@@ -1,5 +1,7 @@
 #include "mech3/game_setup.h"
+#include "mech3/compact.h"
 #include "rekit/files.h"
+#include "rekit/manifest.h"
 
 #include <algorithm>
 #include <cctype>
@@ -111,6 +113,17 @@ Result install_from_disc(const std::string& source, const std::string& out_dir, 
   r.files = d.files, r.movies = d.movies, r.music_tracks = d.music, r.bytes = d.bytes;
   for (const std::string& l : d.log) r.detail += l + "\n";
   if (d.ok) {
+    // Ours: the record of the files the in-game menu's CHECK MY FILES reads (rekit/manifest.h), written once as the
+    // kit's own installs write it (its setup_ops.cpp install(): the whole folder, nothing left out). --install-from is
+    // this function's one caller and the one install that does not go through the kit. Not cancellable: the install
+    // stands; without a record the menu uses own_check.
+    std::string why;
+    p(Progress{"Recording the files", 1.0, ""});
+    if (!rekit::write_manifest(out_dir, {}, [&](int, int, const std::string& path) {
+          p(Progress{"Recording the files", 1.0, path});
+          return true;
+        }, &why))
+      r.warnings.push_back("The record of the files (for CHECK MY FILES) could not be written: " + why + ".");
     r.summary = version_words(r.version, pirates_moon) + " is installed in " + out_dir + " (" +
                 std::to_string(d.files) + " files" + (pirates_moon ? "" : " and " + std::to_string(d.movies) + " movies") +
                 ", " + mb(d.bytes) + ").";
@@ -256,8 +269,26 @@ Result install_from_source(const source::Found& found, const std::string& out_di
     };
     if (!fs::exists(fs::path(tmp) / "zbd" / "reader.zbd", ec))
       return abandon("Nothing was installed: the copy's zbd\\reader.zbd was not found again.");
+    // A compact original (docs/compact.md): every file checked against its manifest, its music moved to the music
+    // folder as a disc's is; its movies stay in video\ for the first start's import.
+    compact::Manifest cm;
+    const bool is_compact = fs::exists(fs::path(tmp) / compact::kManifest, ec);
+    int compact_music = 0;
+    if (is_compact) {
+      if (!p(Progress{"Checking the files", 0.95, ""})) {
+        r.cancelled = true;
+        return abandon("The installation was cancelled. Nothing was changed.");
+      }
+      std::string why;
+      if (!compact::verify(tmp, pm ? "pm" : "mw3", &cm, &why)) return abandon("Nothing was installed: " + why);
+      const fs::path music = fs::path(tmp) / "music";
+      if (fs::is_directory(music, ec)) {
+        if (!music_dir.empty()) compact_music = move_files_in(music.string(), music_dir);
+        fs::remove_all(music, ec);
+      }
+    }
     const std::string note = "Installed by mw3 from " + found.path + " (docs/setup-sources.md).\nfiles=" +
-                             std::to_string(s.files) + "\n";
+                             std::to_string(s.files) + "\n" + (is_compact ? "compact=" + cm.name + "\n" : std::string());
     std::FILE* m = std::fopen((fs::path(tmp) / "mw3-install.txt").string().c_str(), "wb");
     const bool marked = m && std::fwrite(note.data(), 1, note.size(), m) == note.size();
     const bool closed = m && std::fclose(m) == 0;
@@ -273,6 +304,11 @@ Result install_from_source(const source::Found& found, const std::string& out_di
     r.files = s.files, r.bytes = s.bytes;
     if (r.ok) r.summary = version_words(r.version, pm) + " is installed in " + out_dir + " (" + std::to_string(s.files) +
                           " files, " + mb(s.bytes) + "), copied from " + fs::path(found.path).filename().string() + ".";
+    if (r.ok && is_compact) {
+      r.music_tracks = compact_music;
+      r.summary = version_words(r.version, pm) + " is installed in " + out_dir + " from " + compact::words(cm) + ", every file checked." +
+                  (compact_music ? " Its music was added too." : "") + " The movies are converted at the first start.";
+    }
     p(Progress{"Done", 1, ""});
     return r;
   }
@@ -767,7 +803,52 @@ Result check_pm(const std::string& dir, const std::string& write_dir) {
 }
 }  // namespace
 
+std::vector<std::string> pm_own_check(const std::string& dir, const std::string& write_dir) {
+  const Result r = start_check(dir, write_dir, true);
+  if (!r.ok) return {r.summary};
+  std::vector<std::string> out = r.warnings;
+  std::vector<uint8_t> bytes;
+  for (const PmFile& k : kPmFiles) {
+    std::string f;
+    for (const std::string& d : {write_dir, dir})
+      if (f.empty() && !d.empty()) f = zutl::any_case(d, k.path);
+    std::string shown = k.path;
+    std::replace(shown.begin(), shown.end(), '/', '\\');
+    if (f.empty() || !read_file(f, &bytes)) out.push_back(shown + " is missing.");
+    else if (bytes.size() != k.size || zutl_zar::crc32(0, bytes.data(), bytes.size()) != k.crc)
+      out.push_back(shown + " is not as Pirate's Moon 1.0 has it (damaged, or changed by a mod).");
+  }
+  return out;
+}
+
 std::string game_version_words(const std::string& version, bool pirates_moon) { return version_words(version, pirates_moon); }
+
+std::vector<std::string> own_check(const std::string& dir, const std::string& write_dir) {
+  std::vector<std::string> out;
+  const Result r = start_check(dir, write_dir, false);
+  if (!r.ok) return {r.summary};
+  out = r.warnings;
+  int n = 0;
+  const DataFile* files = data_files(&n);
+  const fs::path overlay = write_dir.empty() ? fs::path() : fs::path(write_dir) / "patch12";
+  std::vector<uint8_t> d;
+  std::error_code ec;
+  for (int i = 0; i < n; ++i) {
+    const DataFile& f = files[i];
+    const fs::path in_overlay = overlay.empty() ? fs::path() : overlay / f.path;
+    std::string at = !overlay.empty() && fs::exists(in_overlay, ec) ? in_overlay.string() : zutl::any_case(dir, f.path);
+    std::string shown = f.path;
+    std::replace(shown.begin(), shown.end(), '/', '\\');
+    if (at.empty() || !slurp(at, &d)) {
+      if (f.size_10) out.push_back(shown + " is missing.");  // a 1.0 install lacks the patch's own files
+      continue;
+    }
+    const uint32_t crc = zutl_zar::crc32(0, d.data(), d.size());
+    const bool known = (d.size() == f.size_12 && crc == f.crc_12) || (f.size_10 && d.size() == f.size_10 && crc == f.crc_10);
+    if (!known) out.push_back(shown + " is not as MechWarrior 3 1.0 or 1.2 has it (damaged, or changed by a mod).");
+  }
+  return out;
+}
 
 Result check_install(const std::string& dir, const std::string& write_dir, bool pirates_moon) {
   Result r;
@@ -863,6 +944,12 @@ std::vector<DiscSource> find_discs() {
     std::error_code ec;
     return fs::exists(root / "DATA1.HDR", ec) || fs::exists(root / "data1.hdr", ec);
   };
+  if (const char* at = std::getenv("MW3_DISC_DRIVES")) {  // checks: stand-in drives
+    std::error_code ec;
+    for (const auto& e : fs::directory_iterator(fs::path(at), ec))
+      if (e.is_directory(ec) && has_disc(e.path())) out.push_back({e.path().string(), e.path().filename().string()});
+    return out;
+  }
 #if defined(_WIN32)
   const DWORD drives = GetLogicalDrives();
   for (int i = 0; i < 26; ++i) {

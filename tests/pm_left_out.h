@@ -52,6 +52,20 @@ inline constexpr LeftOut kPmLeftOut[] = {
      "2f5745fd1: MW3's c1 as a new world is refused on PM; PM's test makes it from PM's own c1"},
     {"ai_drop_target_on_the_entity", "pm_wire_drop_target_stands_pm_firing_down",
      "PM 0x004faa40 stands PM's firing down (0x004faa20 -> 0x004ba8c0) under PM_AI=1; the PM test checks both settings"},
+    // MW3's tests built from pm, sorted (pm-tests.md, The nine, sorted).
+    {"mission_c1m1_tag_fires_from_the_mech_headless", "pm_tag_fires_from_the_mech",
+     "PM's weapon list (mech_names.cpp): TAG is 0x2c and 0x20 is MGUNH; the helper mounts MW3's 0x20"},
+    {"mission_c1m1_nav_waynet_headless", "pm_teleport_moves_the_player_and_saves_pms_text, pm_c1m1_shadow_cats_wake",
+     "PM's load 0x00493a90 asks reader<block>.zbd for waynet_<block> (waynet_m1); MW3's c1 has waynet_1"},
+    {"campaign_debriefing_scores_the_missions_objectives_headless", "test_pm_debrief_chain.py",
+     "PM's Exit Mission is command 0x79 (MW3's 0x71), and its debriefing's layout and CONTINUE are PM's"},
+    {"net_pilot_respawns_c1mp1_headless", "test_pm_net_score.py, test_pm_net_respawn.py",
+     "PM's kill scoring 0x004721e0 ends the round with one side left, before MW3's 7.1 s dead camera"},
+    {"net_mobile_base_stations_c1mp1_headless", "pm_mp_stations_from_the_mobile_switch_c1mp1_headless, test_pm_mp_stations.py",
+     "23c3fa94a: PM's stations 0x004938e0 go on the MCB waynet from the MP pilot's MOBILE (+0xc4), not the nav waynet"},
+    {"net_remote_pose_follows_the_states_c1mp1_headless",
+     "test_pm_net_apply.py, test_pm_parts.py, test_pm_controls.py, test_pm_gait.py",
+     "PM aims at the point sent (0x004705e0); its arm ease 0x004681b0, fast_exp throttle 0x004285d0, gait 0x00418fc0 settle past MW3's windows"},
     {nullptr, nullptr, nullptr},  // the end
 };
 
