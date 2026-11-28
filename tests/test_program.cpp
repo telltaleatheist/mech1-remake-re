@@ -24081,6 +24081,7 @@ TEST(mission_c1m2_destroy_objectives_met_by_mech_kills_headless) {
 // until one says done or `limit` frames pass.
 platform::JoyState* g_cheat_stick = nullptr;  // a fake stick for the launch; none the default
 platform::MouseState* g_cheat_mouse = nullptr;  // a fake mouse for the launch (issue #10); none the default
+bool g_cheat_gamepad = false;  // the fake stick a gamepad (issue #10 item 6)
 struct CheatKeys : platform::Input {
   std::vector<platform::KeyEvent> queue;
   uint32_t t = 0;
@@ -24102,6 +24103,7 @@ struct CheatKeys : platform::Input {
     *out = *g_cheat_mouse;
     return 0;
   }
+  bool joystick_gamepad() const override { return g_cheat_stick && g_cheat_gamepad; }
   int32_t joystick_state(platform::JoyState* out) override {
     if (!g_cheat_stick) return kNotAcquired;
     *out = *g_cheat_stick;
@@ -24258,9 +24260,11 @@ struct LeverStick {
   platform::JoyState st;
   int32_t source = 3;
   bool high_up = false;  // the reading rises as the lever goes up
+  float at_ok = 0.5f;    // where the screens leave it for OK
   void set(float up) {
     const float r = high_up ? up : 1.0f - up;
-    if (source == 3) st.z = static_cast<int32_t>(std::lround(2000.0f * r - 1000.0f));
+    int32_t* const axes[6] = {&st.x, &st.y, &st.z, &st.rx, &st.ry, &st.rz};
+    if (source <= 6) *axes[source - 1] = static_cast<int32_t>(std::lround(2000.0f * r - 1000.0f));
     else st.slider[source - 7] = static_cast<int32_t>(std::lround(65535.0f * r));
   }
 };
@@ -24268,7 +24272,7 @@ struct LeverStick {
 // OK, `save` answers ACCEPT's question. The axis left bound at the main menu.
 mech3::AxisBinding lever_screens(const std::string& dir, LeverStick& k, bool assign, bool untick, bool save) {
   g_cheat_stick = &k.st;
-  k.set(0.5f);
+  k.set(k.at_ok);
   CheatKeys keys;
   int stage = 0, wait = 0;
   mech3::AxisBinding bound;
@@ -24446,6 +24450,58 @@ TEST(controls_lever_direction_through_the_screens_and_a_mission_headless) {
   }
   mech3::axis_table() = axes_was;
   zin::state().joy_ready = 0;  // no stick for the tests after (joy_init leaves it when none opens)
+  zin::state().joy_open = false;
+}
+
+// Issue #10 item 6 (a pad player on 1.0.5: "setting throttle to an analog always
+// gives 50% thrust at rest, despite messing with desired zero point ... or holding
+// the analog at a different spot"). Assign Axis says "Set the axis to the desired
+// zero-point then press OK", and 0x0042e5b0 binds the reading at OK as 0; W56's
+// stop-to-full binding, wherever the axis sits, is a lever's. A gamepad's stick
+// bound at rest stops at rest, full ahead pushed one way and reverse the other;
+// bound held up, that place is the stop. Bug fixes on and off alike.
+TEST(issue10_pad_throttle_keeps_the_zero_point_through_the_screens_headless) {
+  if (!have_game()) return;
+  zfix::Options fix_was = zfix::options();
+  const mech3::AxisTable axes_was = mech3::axis_table();
+  g_cheat_gamepad = true;
+  for (const bool bugs : {true, false})
+    for (const float zero : {0.5f, 0.7f}) {  // left at rest, held part up
+      zfix::set_all(bugs);
+      LeverStick k;
+      k.source = 2, k.at_ok = zero;  // the left stick's Y, up reading low
+      W40Setup w("pad_zero_write");
+      const mech3::AxisBinding b = lever_screens(w.dir, k, true, false, true);
+      lever_screens(w.dir, k, false, false, false);  // saved and restarted
+      platform::RegFile settings(w.dir + "/settings.reg");
+      g_cheat_stick = &k.st;
+      g_cheat_mission_settings = &settings;
+      g_cheat_mission_dir = w.dir.c_str();
+      auto target = [] { auto* c = mech3::player_controls_instance(); return c ? c->throttle_target : -9.0f; };
+      float up = -9, at_zero = -9, down = -9, rest = -9;
+      cheat_mission("pad_zero_unused", 0, 1, 900, [&](int f, mech3::GameEngine&, CheatKeys&) {
+        if (f == 1) k.set(zero);
+        if (f == 5) k.set(1.0f);  // pushed full up
+        if (f == 15) { up = target(); k.set(zero); }
+        if (f == 25) { at_zero = target(); k.set(0.0f); }  // full down
+        if (f == 35) { down = target(); k.set(0.5f); }     // let go
+        if (f == 45) { rest = target(); return true; }
+        return false;
+      });
+      g_cheat_mission_settings = nullptr;
+      g_cheat_mission_dir = nullptr;
+      g_cheat_stick = nullptr;
+      std::printf("  pad (bugs %d, zero at %.1f): Y x %g + %g; up %.2f, at the zero %.2f, down %.2f, at rest %.2f\n", bugs,
+                  zero, b.scale, b.offset, up, at_zero, down, rest);
+      EXPECT(b.source == 2 && b.scale == -1.0f);
+      EXPECT(std::fabs(at_zero) < 1e-3f);
+      if (zero == 0.5f) EXPECT(std::fabs(up - 1.0f) < 1e-3f && down < -0.99f && std::fabs(rest) < 1e-3f);
+      else EXPECT(std::fabs(up - 0.6f) < 1e-3f && std::fabs(rest + 0.4f) < 1e-3f);
+    }
+  g_cheat_gamepad = false;
+  zfix::options() = fix_was;
+  mech3::axis_table() = axes_was;
+  zin::state().joy_ready = 0;  // no stick for the tests after
   zin::state().joy_open = false;
 }
 
