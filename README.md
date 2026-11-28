@@ -55,6 +55,14 @@ Every release's full notes are on the [Releases](../../releases) page, and
 [CHANGES.md](CHANGES.md) lists everything the rebuild changes from the
 original.
 
+**1.8.1 (2026-11-28)** (the release page is
+[docs/release-page-pm-1.4.1.md](docs/release-page-pm-1.4.1.md)): updating a
+Windows zip copy from inside the game works (1.4.0's could not move the game's
+folder, so that copy is downloaded by hand once); a new version found at the
+start is a small notice in the corner with the keys to press, not the update
+question over the game; a copy at the very top of a drive says up front that it
+can't update itself. Pirate's Moon alone: 1.4.1.
+
 **1.8.0 (2026-11-28)** (the release page is
 [docs/release-page-pm-1.4.0.md](docs/release-page-pm-1.4.0.md)): a setup menu
 inside the game (Cmd + Shift + F1 on the Mac, Shift + Alt + F1 elsewhere)
