@@ -1032,8 +1032,9 @@ SOUND the list does not read (it reads ROLLOVER_SOUND, 0x0048ccf0).
 
 Under SMALL FIXES (`src/upgrades/sounds/menu_sounds`): the pause and briefing
 hold MENU while they are up, the salvage and debriefing MENU and MECHLAB (a set
-already loaded is left to its owner); the undefined names play `icon_select`,
-`menu_rollover` and `menu_select`; the briefing's, debriefing's and ACCEPT's
+already loaded is left to its owner); the undefined names play `box_rollover`
+(the list arrows' `lab_select`: the salvage rows' click; until 2026-11-27 the
+lab's `icon_select`, a buzz), `menu_rollover` and `menu_select`; the briefing's, debriefing's and ACCEPT's
 buttons without a sound take the menu's, and a moved item plays `icon_select`
 and a salvage row under the mouse `box_rollover`.
 Pirate's Moon's exe holds MENU for its pause itself (0x0049600b).

@@ -42,7 +42,8 @@ MenuSounds::~MenuSounds() {
 
 const char* menu_sound_for(const char* name) {
   if (!name || !zfix::options().small_fixes) return nullptr;
-  if (std::strcmp(name, "lab_select") == 0) return "icon_select";
+  // The list arrows (lab_select): the salvage rows' click, not the lab's icon_select buzz (2026-11-27).
+  if (std::strcmp(name, "lab_select") == 0) return "box_rollover";
   if (std::strcmp(name, "brief_rollover") == 0) return "menu_rollover";
   if (std::strcmp(name, "brief_select") == 0) return "menu_select";
   return nullptr;
