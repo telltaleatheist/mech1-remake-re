@@ -946,8 +946,10 @@ void AxisPopupScreen::OkButton::on_left_up() {
     // OK: the defaults' -0.5 and 0.5 with Invert (which the popup shows
     // checked for them, the scale being negative), +0.5 without; with
     // throttle_reverse the lever map takes it over (mech3::lever_throttle).
-    // A slider's reading scaled to -1..1.
-    const bool throttle = s->owner && s->owner->axis == 0 && src >= 1 && src <= 8;
+    // A slider's reading scaled to -1..1. A gamepad keeps the original's zero
+    // point at OK (issue #10 item 6): its sticks and triggers rest centred, and
+    // the lever map leaves it (lever_reverse_on).
+    const bool throttle = s->owner && s->owner->axis == 0 && src >= 1 && src <= 8 && !zin::joy_gamepad();
     if (throttle) scale = 0.5f * k, offset = 0.5f;
     if (slider(src)) {  // in -1..1: n = r / kSliderHalf - 1
       offset = throttle ? offset - scale : -k * v / kSliderHalf;  // (the reading at OK still reads 0)

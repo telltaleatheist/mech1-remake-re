@@ -105,6 +105,9 @@ copy /y extern\re-setup-kit\third_party\miniz\LICENSE "%DIST%\licenses\miniz\" >
 rem Every DLL the programs load is in the folder or part of Windows; no game file is.
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\windows\check_dist.ps1 "%DIST%" || exit /b 1
 
+rem The record of the folder's files for the in-game menu's CHECK MY FILES (the kit's files_manifest.py, as PowerShell:
+rem no Python here), before the zip and the setup are made from it; the setup's own uninstaller is not in it.
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\windows\files_manifest.ps1 "%DIST%" || exit /b 1
 tar -a -c -f "build-win\dist\%NAME%.zip" -C build-win\dist "%NAME%" || exit /b 1
 
 rem The installer, PM-Rebuild-Setup-<version>.exe (tools\windows\installer.iss),

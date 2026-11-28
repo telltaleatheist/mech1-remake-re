@@ -411,6 +411,47 @@ bool is_our_app(const fs::path& app) {
 
 int run_program(const std::vector<std::string>& args, int seconds, std::string* said) { return run_tool(args, seconds, said); }
 
+rekit::InstallKind install_kind() {
+  if (const char* k = std::getenv("MW3_INSTALL_KIND")) {  // checks
+    const std::string v = k;
+    return v == "folder" ? rekit::InstallKind::kFolder : v == "appimage" ? rekit::InstallKind::kAppImage
+         : v == "mac" ? rekit::InstallKind::kMacApp : v == "setup-user" ? rekit::InstallKind::kWindowsSetupUser
+         : v == "setup-machine" ? rekit::InstallKind::kWindowsSetupMachine : v == "dev" ? rekit::InstallKind::kDevelopment
+         : rekit::InstallKind::kUnknown;
+  }
+#if !defined(MW3_PACKAGE_BUILD)
+  return rekit::InstallKind::kDevelopment;
+#elif defined(__APPLE__)
+  return running_package().empty() ? rekit::InstallKind::kUnknown : rekit::InstallKind::kMacApp;
+#elif defined(_WIN32)
+  const char* base = SDL_GetBasePath();
+  if (!base) return rekit::InstallKind::kUnknown;
+  std::error_code ec;
+  const fs::path dir = fs::path(base);
+  if (!fs::is_regular_file(dir / "unins000.exe", ec)) return rekit::InstallKind::kFolder;
+  for (const char* v : {"ProgramW6432", "ProgramFiles", "ProgramFiles(x86)"}) {
+    const char* pf = SDL_getenv(v);
+    if (!pf || !*pf) continue;
+    const fs::path rel = fs::relative(fs::weakly_canonical(dir, ec), fs::weakly_canonical(fs::path(pf), ec), ec);
+    if (!ec && !rel.empty() && rel.native()[0] != L'.') return rekit::InstallKind::kWindowsSetupMachine;
+  }
+  return rekit::InstallKind::kWindowsSetupUser;
+#else
+  return running_package().empty() ? rekit::InstallKind::kFolder : rekit::InstallKind::kAppImage;
+#endif
+}
+
+std::string program_dir() {
+#if defined(__APPLE__)
+  const std::string app = running_package();
+  if (!app.empty()) return (fs::path(app) / "Contents").string();
+#elif !defined(_WIN32)
+  if (const char* d = std::getenv("APPDIR"); d && std::getenv("APPIMAGE")) return d;
+#endif
+  const char* base = SDL_GetBasePath();
+  return base ? std::string(base) : std::string();
+}
+
 bool start_detached(const std::string& program) {
   const char* args[] = {program.c_str(), nullptr};
   const SDL_PropertiesID props = SDL_CreateProperties();

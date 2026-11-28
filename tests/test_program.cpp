@@ -124,6 +124,7 @@
 #include "mech3/mp_lobby.h"
 #include "upgrades/mods/mp_mods.h"
 #include "mech3/mods.h"
+#include "upgrades/settings/rumble.h"
 #include "upgrades/settings/upgrades.h"
 #include "upgrades/mods/mod_report.h"
 #include "upgrades/mods/entry_archives.h"
@@ -20753,7 +20754,9 @@ TEST(options_mouse_sensitivity_slider_headless) {
   bool page = false, page_read = false, page_applied = false;
   bool raw_row = false, raw_read = false, raw_at_once = false, raw_back = false, page_left_raw = false;
   const bool raw_was = zfix::options().raw_mouse;
-  std::vector<std::string> saved, raw_saved;
+  bool rumble_row = false, rumble_read = false, rumble_at_once = false;
+  const bool rumble_was = upgrades::rumble::on();
+  std::vector<std::string> saved, raw_saved, rumble_saved;
   mech3::options_upgrades_saver() = [&](const char* key, bool on) { saved.push_back(std::string(key) + "=" + (on ? "1" : "0")); };
   {
     mech3::GameEngine engine(p, "mech3.exe -nofmv");
@@ -20812,6 +20815,17 @@ TEST(options_mouse_sensitivity_slider_headless) {
         g->apply(1);
         raw_at_once = zfix::options().raw_mouse == !raw_was;
         raw_saved = saved;
+        // RUMBLE (issue #22): under RAW MOUSE, read, then ACCEPT's apply the other way, at once and saved.
+        rumble_row = g->has_rumble && g->rumble.count() == 2 && g->rumble.get_x() == g->raw_mouse.get_x() &&
+                     g->rumble.get_y() == 415 && g->rumble_box.get_y() == 415;
+        g->apply(0);
+        rumble_read = g->rumble.selected_value() == (rumble_was ? 1 : 0);
+        saved.clear();
+        g->rumble.select(!rumble_was);
+        g->apply(1);
+        rumble_at_once = upgrades::rumble::on() == !rumble_was;
+        rumble_saved = saved;
+        upgrades::rumble::set(rumble_was);
         saved.clear();
         g->raw_mouse.select(raw_was);
         g->back.on_left_up();  // BACK: neither taken nor saved
@@ -20860,7 +20874,18 @@ TEST(options_mouse_sensitivity_slider_headless) {
   std::printf("  raw mouse: row %d, read %d, at once %d, left by BACK %d, kept by the page %d; saved %s\n", raw_row, raw_read, raw_at_once,
               raw_back, page_left_raw, raw_saved.empty() ? "nothing" : raw_saved[0].c_str());
   EXPECT(raw_row && raw_read && raw_at_once && raw_back && page_left_raw);
-  EXPECT(raw_saved == std::vector<std::string>({std::string(zfix::kRawMouseKey) + (raw_was ? "=0" : "=1")}));
+  EXPECT(raw_saved == std::vector<std::string>({std::string(zfix::kRawMouseKey) + (raw_was ? "=0" : "=1"),
+                                                std::string(upgrades::rumble::kKey) + (rumble_was ? "=1" : "=0")}));
+  std::printf("  rumble: row %d, read %d, at once %d; saved %zu line(s)\n", rumble_row, rumble_read, rumble_at_once,
+              rumble_saved.size());
+  EXPECT(rumble_row && rumble_read && rumble_at_once);
+  EXPECT(std::find(rumble_saved.begin(), rumble_saved.end(),
+                   std::string(upgrades::rumble::kKey) + (rumble_was ? "=0" : "=1")) != rumble_saved.end());
+  EXPECT(upgrades::rumble::on() == rumble_was);
+  // mw3.cfg's line: rumble=0 or rumble=1 only.
+  EXPECT(upgrades::rumble::of_line("rumble=0") == 0 && upgrades::rumble::of_line("rumble=1") == 1);
+  EXPECT(upgrades::rumble::of_line("rumble=2") == -1 && upgrades::rumble::of_line("rumbles=1") == -1 &&
+         upgrades::rumble::of_line("rumble=") == -1);
   // mw3.cfg's lines: the Mac reads its own key alone (an old rawmouse=1 starts it from the default, once), the
   // others rawmouse= as before.
   EXPECT(std::string(zfix::raw_mouse_key(false)) == "rawmouse" && std::string(zfix::raw_mouse_key(true)) == "rawmouse_mac");
@@ -20951,12 +20976,13 @@ TEST(options_our_records_take_the_dialogs_font) {
                 font("WIDE_MENUS").c_str(),
                 zrdr::find(r, "UPGRADES_DIALOG") != nullptr, zrdr::find(r, "MOUSE_SENSITIVITY") != nullptr);
     EXPECT(font("CONTROLS_CFG") == want && font("UPGRADES") == want && font("WIDE_MENUS") == want);
-    for (const char* k : {"WATER", "MFB_REGROUP", "IMPROVED_AI", "ARTEMIS", "SMALL_FIXES", "RAW_MOUSE"}) EXPECT(font(k) == want);
+    for (const char* k : {"WATER", "MFB_REGROUP", "IMPROVED_AI", "ARTEMIS", "SMALL_FIXES", "RAW_MOUSE", "RUMBLE"}) EXPECT(font(k) == want);
     // RAW MOUSE's one row is the game options', not the page's (2026-11-25).
     zrdr::Node* page = zrdr::find(r, "UPGRADES_DIALOG");
     zrdr::Node* game = zrdr::find(r, "GAME_OPTION_DIALOG");
     EXPECT(page && !zrdr::find(page, "RAW_MOUSE") && !zrdr::find(page, "BOX7") && zrdr::find(page, "BOX6"));
     EXPECT(game && zrdr::find(game, "RAW_MOUSE") && zrdr::find(game, "RAW_MOUSE_BOX"));
+    EXPECT(game && zrdr::find(game, "RUMBLE") && zrdr::find(game, "RUMBLE_BOX") && !zrdr::find(page, "RUMBLE"));  // issue #22
     EXPECT(zrdr::find(r, "UPGRADES_DIALOG") != nullptr && zrdr::find(r, "MOUSE_SENSITIVITY") != nullptr);
     zrdr::free_node(r);
     zrdr::close_archives(true);
@@ -24061,6 +24087,7 @@ TEST(mission_c1m2_destroy_objectives_met_by_mech_kills_headless) {
 // until one says done or `limit` frames pass.
 platform::JoyState* g_cheat_stick = nullptr;  // a fake stick for the launch; none the default
 platform::MouseState* g_cheat_mouse = nullptr;  // a fake mouse for the launch (issue #10); none the default
+bool g_cheat_gamepad = false;  // the fake stick a gamepad (issue #10 item 6)
 struct CheatKeys : platform::Input {
   std::vector<platform::KeyEvent> queue;
   uint32_t t = 0;
@@ -24082,6 +24109,7 @@ struct CheatKeys : platform::Input {
     *out = *g_cheat_mouse;
     return 0;
   }
+  bool joystick_gamepad() const override { return g_cheat_stick && g_cheat_gamepad; }
   int32_t joystick_state(platform::JoyState* out) override {
     if (!g_cheat_stick) return kNotAcquired;
     *out = *g_cheat_stick;
@@ -24238,9 +24266,11 @@ struct LeverStick {
   platform::JoyState st;
   int32_t source = 3;
   bool high_up = false;  // the reading rises as the lever goes up
+  float at_ok = 0.5f;    // where the screens leave it for OK
   void set(float up) {
     const float r = high_up ? up : 1.0f - up;
-    if (source == 3) st.z = static_cast<int32_t>(std::lround(2000.0f * r - 1000.0f));
+    int32_t* const axes[6] = {&st.x, &st.y, &st.z, &st.rx, &st.ry, &st.rz};
+    if (source <= 6) *axes[source - 1] = static_cast<int32_t>(std::lround(2000.0f * r - 1000.0f));
     else st.slider[source - 7] = static_cast<int32_t>(std::lround(65535.0f * r));
   }
 };
@@ -24248,7 +24278,7 @@ struct LeverStick {
 // OK, `save` answers ACCEPT's question. The axis left bound at the main menu.
 mech3::AxisBinding lever_screens(const std::string& dir, LeverStick& k, bool assign, bool untick, bool save) {
   g_cheat_stick = &k.st;
-  k.set(0.5f);
+  k.set(k.at_ok);
   CheatKeys keys;
   int stage = 0, wait = 0;
   mech3::AxisBinding bound;
@@ -24426,6 +24456,58 @@ TEST(controls_lever_direction_through_the_screens_and_a_mission_headless) {
   }
   mech3::axis_table() = axes_was;
   zin::state().joy_ready = 0;  // no stick for the tests after (joy_init leaves it when none opens)
+  zin::state().joy_open = false;
+}
+
+// Issue #10 item 6 (a pad player on 1.0.5: "setting throttle to an analog always
+// gives 50% thrust at rest, despite messing with desired zero point ... or holding
+// the analog at a different spot"). Assign Axis says "Set the axis to the desired
+// zero-point then press OK", and 0x0042e5b0 binds the reading at OK as 0; W56's
+// stop-to-full binding, wherever the axis sits, is a lever's. A gamepad's stick
+// bound at rest stops at rest, full ahead pushed one way and reverse the other;
+// bound held up, that place is the stop. Bug fixes on and off alike.
+TEST(issue10_pad_throttle_keeps_the_zero_point_through_the_screens_headless) {
+  if (!have_game()) return;
+  zfix::Options fix_was = zfix::options();
+  const mech3::AxisTable axes_was = mech3::axis_table();
+  g_cheat_gamepad = true;
+  for (const bool bugs : {true, false})
+    for (const float zero : {0.5f, 0.7f}) {  // left at rest, held part up
+      zfix::set_all(bugs);
+      LeverStick k;
+      k.source = 2, k.at_ok = zero;  // the left stick's Y, up reading low
+      W40Setup w("pad_zero_write");
+      const mech3::AxisBinding b = lever_screens(w.dir, k, true, false, true);
+      lever_screens(w.dir, k, false, false, false);  // saved and restarted
+      platform::RegFile settings(w.dir + "/settings.reg");
+      g_cheat_stick = &k.st;
+      g_cheat_mission_settings = &settings;
+      g_cheat_mission_dir = w.dir.c_str();
+      auto target = [] { auto* c = mech3::player_controls_instance(); return c ? c->throttle_target : -9.0f; };
+      float up = -9, at_zero = -9, down = -9, rest = -9;
+      cheat_mission("pad_zero_unused", 0, 1, 900, [&](int f, mech3::GameEngine&, CheatKeys&) {
+        if (f == 1) k.set(zero);
+        if (f == 5) k.set(1.0f);  // pushed full up
+        if (f == 15) { up = target(); k.set(zero); }
+        if (f == 25) { at_zero = target(); k.set(0.0f); }  // full down
+        if (f == 35) { down = target(); k.set(0.5f); }     // let go
+        if (f == 45) { rest = target(); return true; }
+        return false;
+      });
+      g_cheat_mission_settings = nullptr;
+      g_cheat_mission_dir = nullptr;
+      g_cheat_stick = nullptr;
+      std::printf("  pad (bugs %d, zero at %.1f): Y x %g + %g; up %.2f, at the zero %.2f, down %.2f, at rest %.2f\n", bugs,
+                  zero, b.scale, b.offset, up, at_zero, down, rest);
+      EXPECT(b.source == 2 && b.scale == -1.0f);
+      EXPECT(std::fabs(at_zero) < 1e-3f);
+      if (zero == 0.5f) EXPECT(std::fabs(up - 1.0f) < 1e-3f && down < -0.99f && std::fabs(rest) < 1e-3f);
+      else EXPECT(std::fabs(up - 0.6f) < 1e-3f && std::fabs(rest + 0.4f) < 1e-3f);
+    }
+  g_cheat_gamepad = false;
+  zfix::options() = fix_was;
+  mech3::axis_table() = axes_was;
+  zin::state().joy_ready = 0;  // no stick for the tests after
   zin::state().joy_open = false;
 }
 
@@ -28768,6 +28850,56 @@ TEST(issue10_auto_return_torso_keeps_its_limit_headless) {
   if (!have_game()) return;
   EXPECT(issue10_twist(true) <= 1.001f);
   EXPECT(issue10_twist(false) > 1.5f);  // the original's: well past
+}
+// Issue #10 item 1: FREELOOK or TOGGLE_TMODE on the middle button with no key
+// did nothing (0x0051c2b0 kept no callback for a keyless command). The press
+// itself, in a mission: the view changes with `fixed`, not on the exe's path.
+namespace {
+struct MiddleRun {
+  int before = -1, after = -1;
+  bool bound = false;
+};
+MiddleRun issue10_middle(int32_t cmd, bool fixed) {
+  platform::MouseState mouse;
+  g_cheat_mouse = &mouse;
+  static int32_t s_cmd;
+  s_cmd = cmd;
+  g_cheat_mission_at_start = [] {  // the report's map: the command on the middle button, its key slots empty
+    zin::bind_key1(0, s_cmd), zin::bind_key2(0, s_cmd), zin::bind_mouse(0, s_cmd);
+    zin::bind_mouse(3, s_cmd);
+    zin::map_refresh();
+    // A fresh run's: the launch's first player_controls (0x00427280) gives the callbacks.
+    zin::current_map()->callbacks[s_cmd] = nullptr;
+  };
+  zfix::options().fixed = fixed;
+  MiddleRun r;
+  cheat_mission("issue10_middle_write", 0, 1, 900, [&](int f, mech3::GameEngine&, CheatKeys&) {
+    auto* c = mech3::player_controls_instance();
+    if (f == 2 && c) {
+      if (cmd == 0x17) c->view = 0;  // FREELOOK toggles 0 and 1
+      r.before = c->view;
+      r.bound = zin::mouse_command(3) == cmd && zin::key1_of(cmd) == 0 && zin::key2_of(cmd) == 0;
+    }
+    mouse.buttons[2] = f >= 5 && f < 8 ? 0x80 : 0;  // the middle button pressed, held, let go
+    if (f == 20 && c) r.after = c->view;
+    return f >= 20;
+  });
+  g_cheat_mission_at_start = nullptr;
+  g_cheat_mouse = nullptr;
+  zfix::options().fixed = true;
+  std::printf("  issue 10 item 1 (cmd %#x, fixed %d): middle button alone %d, view %d -> %d\n", cmd, fixed, r.bound,
+              r.before, r.after);
+  return r;
+}
+}  // namespace
+TEST(issue10_middle_button_alone_toggles_the_view_headless) {
+  if (!have_game()) return;
+  for (const int32_t cmd : {0x17, 0x16}) {  // FREELOOK, TOGGLE_TMODE
+    const MiddleRun on = issue10_middle(cmd, true), off = issue10_middle(cmd, false);
+    EXPECT(on.bound && off.bound && on.before >= 0 && off.before >= 0);
+    EXPECT(on.after != on.before);    // the press acts
+    EXPECT(off.after == off.before);  // the original's: nothing
+  }
 }
 // Playtest W50 (c1m2 on the Mac, v1.0): "Destroy Missile Platforms
 // OP: Baker" stays In Progress; triturret02 vanished with no wreck while its

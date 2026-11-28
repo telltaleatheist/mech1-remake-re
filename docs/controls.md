@@ -165,12 +165,17 @@ flipped, or at 0 the flag toggled; 0x004274d0); the stick's own value goes
 into the target straight (+0x3c) and never touches it. So the defaults' 0..1
 lever drives 0..-1 after Backspace. The axis popup's OK (0x0042e5b0) takes
 the lever's place at OK as 0: pressed with the lever centred, its lower half
-is reverse; at an end, stop to full only. Ours (W56, fixes.md): with bugs the
+is reverse; at an end, stop to full only (the popup's words: "Set the axis to the
+desired zero-point then press OK"). Ours (W56, fixes.md): with bugs the
 lever covers reverse itself (`lever_throttle`), and the flag no longer flips it:
 a tapped throttle-down key with the lever behind stop, or Backspace or button 10
 with it ahead, left up meaning reverse until the mission's end, while Backspace
 with it behind stop did nothing. The keys' throttle keeps the flag. A lever that
 reads high at its top runs backwards until Invert is unticked in Assign Axis.
+A gamepad keeps the exe's zero point at OK, the lever map
+not being its (issue #10 item 6): a pad's stick bound at rest stops at rest, full
+ahead one way and reverse the other. Its defaults are the exe's: Z, the triggers on
+one centred axis, x -0.5 + 0.5, half at rest (input.md section 7).
 Open: a Thrustmaster player (model unknown, a Reddit comment, no log) said the
 reversed option changed nothing. Not reproduced: Invert flips the lever through
 the screens, saved and restarted, on Z and a slider, reading either way. The

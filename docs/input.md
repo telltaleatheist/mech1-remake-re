@@ -180,7 +180,8 @@ player's commands get theirs once a run, at the first mission. One with no
 key then (SHUTDOWN in a map saved without it) never ran its callback, even
 after a key was bound and the map rebuilt, until the game was started again
 (issue #4); a command on a stick or mouse button alone never ran one (issue #10 item 1: FREELOOK or TOGGLE_TMODE on the middle button with no key did nothing). The
-port keeps the callback anyway (FIX (bug), fixes.md).
+port keeps the callback anyway (FIX (bug), fixes.md); `issue10_middle_button_alone_toggles_the_view_headless`
+presses the middle button in a mission and sees the view change, and not on the exe's path.
 
 ## 4. The joystick
 
@@ -377,6 +378,19 @@ DIDC_FORCEFEEDBACK when SDL says the device rumbles. Tests:
 - `force_feedback_effects_and_the_games_calls_headless`: every method on
   a recording device; in c1m1 the object made, the Spring, the water and
   the steps. Break: the calls unwired, none.
+
+Ours (issue #22, 2026-11-27): RUMBLE, an ON/OFF row on the game options
+under RAW MOUSE (`upgrades/settings/rumble.h`, mw3.cfg `rumble=0/1`, on by
+default). The original had force feedback for sticks only and no switch;
+playing it on any pad's rumble meant a pad left plugged in rumbled for a
+player on mouse and keyboard. Off, `SdlForceDevice` sets the rumble to
+nothing whatever is playing, and the switch re-applies at once
+(`refresh()`), so an infinite effect (the jets) stops on ACCEPT; on again,
+what is still playing comes back. Tests:
+`sdl_force_device_rumble_switch_off_plays_nothing` (a virtual pad told 0
+at once, a new effect while off plays nothing, the jets back after) and
+`options_mouse_sensitivity_slider_headless` (the row at 415 under RAW
+MOUSE, read, applied at once, saved).
 
 ## 8. The mouse in a window (2026-10-30)
 

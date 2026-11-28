@@ -28,6 +28,7 @@
 #include "platform/reg_file.h"
 #include "platform/silent_sound.h"
 #include "pm/pm_game.h"
+#include "upgrades/settings/rumble.h"
 #include "upgrades/mods/entry_run.h"
 #include "upgrades/settings/upgrades.h"
 
@@ -518,6 +519,8 @@ TEST(pm_upgrades_page_has_five_switches_headless) {
   const bool raw_was = fix_was.raw_mouse;
   bool raw_row = false, raw_taken = false, raw_kept = false;
   std::string raw_saved;
+  bool rumble_row = false, rumble_was = upgrades::rumble::on();
+  int rumble_y = -1;
   bool water_on_screen = false, water_shown_off = false, water_after = false, small_after = true;
   {
     mech3::GameEngine engine(p, "mech3.exe -nofmv");
@@ -537,6 +540,8 @@ TEST(pm_upgrades_page_has_five_switches_headless) {
         // RAW MOUSE is the game options' row under MOUSE SENSITIVITY (2026-11-25), at once and saved.
         raw_row = g->has_raw_mouse && g->raw_mouse.selected_value() == (raw_was ? 1 : 0);
         raw_y = g->raw_mouse.get_y(), box_y = g->raw_mouse_box.get_y();
+        rumble_row = g->has_rumble && g->rumble.selected_value() == (rumble_was ? 1 : 0);  // RUMBLE (main's, issue #22) under it
+        rumble_y = g->rumble.get_y();
         g->raw_mouse.select(!raw_was);
         g->apply(1);
         raw_taken = zfix::options().raw_mouse == !raw_was;
@@ -577,7 +582,10 @@ TEST(pm_upgrades_page_has_five_switches_headless) {
   EXPECT(stage == 3 && rows[0] == 64 && rows[1] == 94 && rows[2] == 124 && rows[3] == 154 && rows[4] == 184 && rows[5] == 214);
   std::printf("  raw mouse: row %d at %d, box %d, taken %d, kept by the page %d; saved %s\n", raw_row, raw_y, box_y, raw_taken, raw_kept, raw_saved.c_str());
   EXPECT(raw_row && raw_y == 389 && box_y == 389 && raw_taken && raw_kept);
-  EXPECT(raw_saved == std::string(zfix::kRawMouseKey) + (raw_was ? "=0 " : "=1 "));  // the Mac's own key
+  std::printf("  rumble: row %d at %d\n", rumble_row, rumble_y);
+  EXPECT(rumble_row && rumble_y == 415);
+  // The Mac's own key, then RUMBLE's as it was: the screen's ACCEPT saves both.
+  EXPECT(raw_saved == std::string(zfix::kRawMouseKey) + (raw_was ? "=0 " : "=1 ") + upgrades::rumble::kKey + (rumble_was ? "=1 " : "=0 "));
   EXPECT(water_on_screen && water_shown_off);
   EXPECT(lines == 14 && upgrades::small_fixes_list().size() == 14);
   EXPECT(keys == "upgrade_water=1 upgrade_mfb_regroup=1 upgrade_improved_ai=1 upgrade_artemis=1 upgrade_small_fixes=0 widemenus=1 ");
