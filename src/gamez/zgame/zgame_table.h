@@ -187,6 +187,9 @@ struct Table {
   // Linking a child marks it moved (PM's node_link 0x004fd6f0 calls 0x004ff6d0). MW3's 0x004eba90 does not, and MW3's
   // read_node links before the children are cleared (docs/pm-tests.md, MW3's tests built from pm).
   bool node_link_marks_moved = false;
+  // The multiplayer stations (PM 0x004938e0): a point whose +0x0d is set is passed over, and each one given a station
+  // is set (the port's WaynetPoint::static_mfb, which the dock reads). MW3's 0x00490950 has neither.
+  bool mp_stations_mark = false;
 };
 
 const Table& mw3_table();

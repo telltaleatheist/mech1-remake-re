@@ -286,7 +286,7 @@ The default command-line mech (`Launch::mech` 13) is right for both: the shared 
 every mission.
 
 The nine, sorted (2026-11-27; one ledger run, then experiments, each a temporary edit restored from a saved copy).
-None is a break in shared code that main or MW3 would have. One is a gap in PM itself (the stations, last).
+None is a break in shared code that main or MW3 would have. One was a gap in PM itself (the stations, last; fixed).
 - `mission_c1m1_tag_fires_from_the_mech_headless`: PM by design, PM's weapon list. The tests-only helper
   `mech_tag_muzzle` adds weapon 0x20, MW3's TAG; in PM's list (`mech_names.cpp`) 0x20 is MGUNH and TAG is `kTag`
   0x2c. With `kTag` it passes (mounted, the muzzle 7.8 m out). PM's `pm_tag_fires_from_the_mech` covers TAG.
@@ -313,12 +313,13 @@ None is a break in shared code that main or MW3 would have. One is a gap in PM i
   puts the victim out and one side left ends the round ("No more enemies"): the game goes to its menu 190 frames
   after the death, before the dead list's call (7.1 s) that would set MW3's camera 4. Respawn on passes.
   `test_pm_net_score.py` and `test_pm_net_respawn.py` check these against the exe.
-- `net_mobile_base_stations_c1mp1_headless`: PM by design for the test, and a gap in PM. PM makes the stations from
-  the multiplayer pilot's own switch (+0xc4) and its MCB waynet (0x004938e0, `mission.cpp`), where MW3 uses the
-  game's `ba8` and the nav waynet; the test sets `ba8`. The gap: the waynet comes from the hook `mp_mcbs()`, still
-  the unported stub on `pm` ("[0x0062fc18]"), so PM's multiplayer field base stations are never made in mw3pm.
-  [0x0062fc18] is the waynet PM's 0x004e57e0 makes (paired with MW3's `mcb_waynet_make` 0x004d5460,
-  `pm-diff/pairs.json`), so the hook looks like the port's `mcb_waynet()`. Not fixed yet.
+- `net_mobile_base_stations_c1mp1_headless`: PM by design for the test, and a gap in PM, since fixed. PM makes the
+  stations from the multiplayer pilot's own switch (+0xc4) and its MCB waynet (0x004938e0, `mission.cpp`), where MW3
+  uses the game's `ba8` and the nav waynet; the test sets `ba8` and counts the nav waynet's points. The gap was the
+  two hooks, `pilot_mp_player()` and `mp_mcbs()`, unported stubs on `pm`, so PM's multiplayer field base stations
+  were never made in mw3pm (fixed: The multiplayer stations, below). Since then the test sees PM's station on
+  MW3's c1mp1 MCB waynet (1) and none of its labels on the nav waynet. `pm_mp_stations_from_the_mobile_switch_c1mp1_headless`
+  covers it.
 
 ## MW3's tests rewritten for PM (`pm_moved.py`)
 
@@ -2006,3 +2007,31 @@ x -1 + 0 (or - 0.4): full ahead 1.00 (0.60), 0 at the zero point, full reverse -
 in a forked child, seed 1. Passed under PM_AI=1 and PM_AI=0. Break (the gamepad exception taken out of the throttle's
 scaling, controls_menu.cpp): with bug fixes on the pad is bound as a lever (x -0.5 + 0.5), half throttle at rest,
 caught on every check; with them off nothing changes, as on main.
+
+## The multiplayer stations (2026-11-27)
+
+PM's mission load (0x00493a90, `mission.cpp`) makes the multiplayer field base stations when the multiplayer pilot's
+game (0x0047b710 on the pilot with 0: its game if a multiplayer one) has MOBILE_CHECKBOX set (its +0xc4, the port's
+`ba8`) and the MCB waynet exists ([0x0062fc18], made by PM's 0x004e57e0, MW3's `mcb_waynet_make` 0x004d5460, from the
+AI net compile's dock points). Both hooks were unported stubs on `pm`, so no station was ever made in mw3pm. PM's exe
+does make them: the multiplayer readers have arrangenodes, c1mp1 and c1mp2 have one static_mfb dock point each, and
+every PM world has `mfb_station01`. So this finishes the port; it is not a fix and has no fixes.md row.
+
+The station step (0x004938e0) differs from MW3's 0x00490950 in two places, now behind the table's `mp_stations_mark`
+(PM on): a point whose +0x0d is set is passed over, and each point given a station gets +0x0d set. +0x0d is the point
+constructor's last argument (0x0047c5f0), the net node's static_mfb (the port's `WaynetPoint::static_mfb`), which the
+dock reads (`dock_point_static`; `dock_count` hides the non-static points while no base is up). So the static base's
+point gets no station, and the points given one count as bases' points at the dock.
+
+Tests:
+- `test_pm_mission_load.py` now also draws MOBILE (0/1) and the MCB waynet (none or one) and checks the branch against
+  the exe: 200 cases x 2 entries identical, with station steps among them.
+- `test_pm_mp_stations.py` (new, `probe_pm_mp_stations.cpp`) runs 0x004938e0 against the port on random waynets
+  (0 to 24 points, some marked, the station model sometimes missing): each point's mark after, its station's number,
+  place, shown, in the world. 300 cases identical, 594 stations made, 536 marked points passed over.
+- `pm_mp_stations_from_the_mobile_switch_c1mp1_headless` (`tests/pm/test_pm_mp_stations.cpp`, mw3pmtests): c1mp1 on
+  PM's data as a network game, MOBILE on and off, forked children, seed 1. On: of 8 dock points, the static one is
+  passed over and 7 get `mfb_station_04`..`10`, each in the world, at its point, shown, every point marked. Off: no
+  station, only the static point marked. Passed under PM_AI=1 and PM_AI=0.
+- Breaks, each caught: `mp_mcbs()` returning none (no stations); the 0xc4 read mapped elsewhere (no stations);
+  `mp_stations_mark` off (the static point given a station; the differential differs at the first marked point).

@@ -854,6 +854,7 @@ if(MW3_BUILD_PM)
     tests/pm/test_pm_salvage_world.cpp
     tests/pm/test_pm_chat_reset.cpp
     tests/pm/test_pm_options.cpp
+    tests/pm/test_pm_mp_stations.cpp  # the multiplayer stations from MOBILE and the MCB waynet (PM 0x004938e0)
     tests/pm/test_pm_pad_throttle.cpp  # issue #10 item 6 (main's test_program.cpp issue10_pad_throttle_*) on PM
     tests/pm/test_pm_sound_range.cpp
     tests/pm/test_pm_hud.cpp
@@ -981,6 +982,7 @@ if(MW3_BUILD_PM)
   target_sources(pmprobe PRIVATE tests/probe_pm_object_lod.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_scene_children.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_camera_moved.cpp)
+  target_sources(pmprobe PRIVATE tests/probe_pm_mp_stations.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_top_cameras.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_screen_modes.cpp)
   target_sources(pmprobe PRIVATE tests/probe_pm_mech_sounds.cpp)

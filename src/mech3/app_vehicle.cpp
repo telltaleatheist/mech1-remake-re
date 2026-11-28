@@ -9,6 +9,7 @@
 #include <cstring>
 #include <set>
 
+#include "gamez/zgame/zgame_table.h"
 #include "gamez/zmodel/gmod_const.h"
 #include "gamez/zmodel/gmod_init.h"
 #include "gamez/zclass/camera.h"
@@ -847,11 +848,14 @@ int32_t program_mcb_points() { return mcb_waynet() ? mcb_waynet()->count() - 1 :
 void* program_field_base(int32_t i) {
   return i >= 0 && i < 3 ? static_cast<BasicVehicle*>(field_bases().bases[i]) : nullptr;
 }
-bool program_mcb_point(int32_t i, float pos[3]) {
+bool program_mcb_point(int32_t i, float pos[3], const char** label, uint8_t* mark) {
   const Waynet* w = mcb_waynet();
   if (!w || i < 1 || i >= w->count()) return false;
   const float* p = w->position_of(i);
   pos[0] = p[0], pos[1] = p[1], pos[2] = p[2];
+  const WaynetPoint* pt = as_point(w->elem(i));
+  if (label) *label = pt ? pt->label_or_null() : nullptr;
+  if (mark) *mark = pt ? pt->static_mfb : 0;
   return true;
 }
 bool program_dock_point(const char** label, float pos[3]) {
@@ -898,13 +902,17 @@ bool program_mission_point(int32_t i, const char** label, float pos[3]) {
 // of a built waynet is a point with a place (the emulator on the shipped
 // waynet_mp files); one without would be passed over (the exe would read
 // through null).
+// Pirate's Moon 1.0 @ 0x004938e0, on the MCB waynet: a point already marked (+0x0d, a static base's) gets none, and
+// each one given a station is marked (the table's mp_stations_mark; pm-tests.md, The multiplayer stations).
 int32_t program_mp_stations(void* waynet) {
   auto* w = static_cast<Waynet*>(waynet);
   if (!w) return 0;
   zcls::Node* station = static_cast<zcls::Node*>(zcls::list_find_by_name(6, "mfb_station01"));
   if (!station) return 0;
   int32_t n = 4, made = 0;
+  const bool mark = zgame::game().mp_stations_mark;
   for (int32_t i = 0; i < w->count(); ++i) {
+    if (WaynetPoint* p = as_point(w->elem(i)); mark && p && p->static_mfb) continue;  // Pirate's Moon 0x00493950
     auto* b = dynamic_cast<ai::Behaviour*>(w->elem(i));
     const float* at = b ? b->position() : nullptr;  // vt+0x18
     if (!at) continue;
@@ -916,7 +924,10 @@ int32_t program_mp_stations(void* waynet) {
     zcls::object3d_set_translation(copy, at[0], at[1], at[2]);
     zcls::node_set_name(copy, name);
     zcls::node_set_active(copy, 1);
-    if (WaynetPoint* p = as_point(w->elem(i))) p->label = name, p->has_label = true;
+    if (WaynetPoint* p = as_point(w->elem(i))) {
+      p->label = name, p->has_label = true;
+      if (mark) p->static_mfb = 1;  // Pirate's Moon 0x004939ff: the dock takes it as a base's
+    }
     ++made;
   }
   return made;

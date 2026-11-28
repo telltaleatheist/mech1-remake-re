@@ -60,7 +60,8 @@ bool program_mission_point(int32_t i, const char** label, float pos[3]);
 // The mcbwaynet's points (count, without the default behaviour at 0) and the
 // dock's point after a request: its label and place; false without one.
 int32_t program_mcb_points();
-bool program_mcb_point(int32_t i, float pos[3]);  // point i (1..count) of the mcbwaynet, for the tests
+// Point i (1..count) of the mcbwaynet, for the tests: its place, and its label and static_mfb (PM's +0x0d) if asked.
+bool program_mcb_point(int32_t i, float pos[3], const char** label = nullptr, uint8_t* mark = nullptr);
 void* program_field_base(int32_t i);              // the registry's base i (0..2), for the tests
 bool program_dock_point(const char** label, float pos[3]);  // [0x00609980]: the mcbwaynet while the MFB command is picking
 int32_t program_field_bases_count();          // the registry's count (0x00605ae0 +0x10)

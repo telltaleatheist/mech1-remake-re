@@ -1636,6 +1636,14 @@ struct WiredMissionHooks : MissionHooks {
   void action_start(Handle a) override { program_part_set_internal(e->object_of(a), 0.0f, 0); }
   uint8_t mp_flag() override { return mp_mobile_bases() ? 1 : 0; }
   void mp_stations(Handle h) override { program_mp_stations(e->object_of(h)); }  // 0x00490950
+  // Pirate's Moon 0x0047b710 on the pilot (with 0): its game when a multiplayer one, else none (a debug start's
+  // network game stands in); the mission load reads its +0xc4, MOBILE_CHECKBOX's (field32 below).
+  Handle pilot_mp_player() override {
+    MultiplayerGame* g = mission_multiplayer_game();
+    return g ? e->handle_of(g) : 0;
+  }
+  // [0x0062fc18]: the MCB waynet, made by the net compile's dock points (PM 0x004e57e0, MW3's 0x004d5460), else none.
+  Handle mp_mcbs() override { return program_mcb_waynet() ? e->handle_of(program_mcb_waynet()) : 0; }
   WiredObjectiveHooks& ob() { return g_objective_hooks; }
   // The end's cockpit (mission.cpp cockpit): 0x00430aa0 on the view's own mech's
   // +0x684, and its objectives box (+0x17964) shown for a time (vt+0x60, -1 held).
@@ -1932,6 +1940,7 @@ struct WiredMissionHooks : MissionHooks {
   uint32_t field32(Handle h, uint32_t off) override {
     uint32_t v = 0;
     if (ActionGame* a = launch_action(e); a && h == e->handle_of(a) && action_field(a, off, &v, nullptr)) return v;
+    if (MultiplayerGame* g = mission_multiplayer_game(); g && h == e->handle_of(g) && off == 0xc4) return g->ba8;  // PM's +0xc4
     if (off == 0x578)  // a mech's animation state (the loss's "already down", 10)
       if (const int32_t st = program_mech_anim_state(e->object_of(h)); st != -1) return static_cast<uint32_t>(st);
     return e->peek32(h + off);
