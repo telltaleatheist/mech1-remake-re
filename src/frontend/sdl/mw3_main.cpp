@@ -871,7 +871,7 @@ int serve_setup_ask(Args& a) {
   rekit::sdl::SetupOptions o;
   o.user_folder = a.write_dir, o.default_out = (std::filesystem::path(a.write_dir) / "install").make_preferred().string();
   o.in_use = a.cfg_install;
-  if (const char* base = SDL_GetBasePath()) o.program_dir = base;
+  o.program_dir = sdlfe::program_dir();  // as the in-game menu's: the AppImage's $APPDIR, where setup-kit-settings.json is
   o.log_prefix = "mw3: setup: ";
   o.log = [](const std::string& line) { std::fprintf(stderr, "mw3: setup: %s\n", line.c_str()); };
   const rekit::sdl::SetupResult r = rekit::sdl::serve_setup(sdlfe::mw3_recipe(recipe_places(a)), o, a.setup_ask);
