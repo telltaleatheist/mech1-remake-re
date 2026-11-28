@@ -1,3 +1,4 @@
+#include "rekit/manifest.h"
 #include "mech3/net_save.h"
 #include "mech3/data_version.h"
 #include "mech3/patch_import.h"
@@ -685,6 +686,10 @@ TEST(setup_api_probes_installs_cancels_and_explains) {
   EXPECT(std::find(stages.begin(), stages.end(), "Copying the movies") != stages.end() &&
          std::find(stages.begin(), stages.end(), "Writing the music") != stages.end());
   EXPECT(std::filesystem::exists(tmp + "/music/track02.wav"));
+  // The record of its files (--install-from's, as the kit's installs write theirs): there, and every file checks clean.
+  const rekit::FilesCheck rec = rekit::check_files(tmp + "/game", {}, nullptr);
+  std::printf("  the record: %s, %d files checked\n", rec.has_manifest ? "there" : "none", rec.checked);
+  EXPECT(rec.ok() && rec.checked >= 31 && std::find(stages.begin(), stages.end(), "Recording the files") != stages.end());
 
   // Cancels: in the movies, then in the music (an earlier track kept).
   spit_file(tmp + "/music/track09.wav", {'o', 'l', 'd'});

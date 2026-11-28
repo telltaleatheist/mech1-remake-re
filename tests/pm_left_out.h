@@ -63,6 +63,9 @@ inline constexpr LeftOut kPmLeftOut[] = {
      "PM's kill scoring 0x004721e0 ends the round with one side left, before MW3's 7.1 s dead camera"},
     {"net_mobile_base_stations_c1mp1_headless", "pm_mp_stations_from_the_mobile_switch_c1mp1_headless, test_pm_mp_stations.py",
      "23c3fa94a: PM's stations 0x004938e0 go on the MCB waynet from the MP pilot's MOBILE (+0xc4), not the nav waynet"},
+    {"net_remote_pose_follows_the_states_c1mp1_headless",
+     "test_pm_net_apply.py, test_pm_parts.py, test_pm_controls.py, test_pm_gait.py",
+     "PM aims at the point sent (0x004705e0); its arm ease 0x004681b0, fast_exp throttle 0x004285d0, gait 0x00418fc0 settle past MW3's windows"},
     {nullptr, nullptr, nullptr},  // the end
 };
 

@@ -287,7 +287,7 @@ every mission.
 
 The nine, sorted (2026-11-27; one ledger run, then experiments, each a temporary edit restored from a saved copy).
 None is a break in shared code that main or MW3 would have. One was a gap in PM itself (the stations, last; fixed).
-The five PM by design are in `tests/pm_left_out.h`, each with the PM test that covers it.
+The six PM by design (the five and the remote pose) are in `tests/pm_left_out.h`, each with the PM tests that cover it.
 - `mission_c1m1_tag_fires_from_the_mech_headless`: PM by design, PM's weapon list. The tests-only helper
   `mech_tag_muzzle` adds weapon 0x20, MW3's TAG; in PM's list (`mech_names.cpp`) 0x20 is MGUNH and TAG is `kTag`
   0x2c. With `kTag` it passes (mounted, the muzzle 7.8 m out). PM's `pm_tag_fires_from_the_mech` covers TAG.
@@ -309,8 +309,8 @@ The five PM by design are in `tests/pm_left_out.h`, each with the PM test that c
     90 walking frames, 0.06 after the next 90. PM's gait 0x00418fc0 (`test_pm_gait.py`) keeps the walk while the throttle
     times the speed factor is above the walk's low step, so the mech walks on through the window (3.9 m).
   - The mech is not it: the Shadow Cat (main's roster 13) in place of PM's Mad Cat settles the same way.
-  So MW3's 40- and 70-frame windows don't fit PM on these inputs. The test is not in `pm_left_out.h` (told not to list
-  it before the proof); its two lines show in a pm build's run.
+  So MW3's 40- and 70-frame windows don't fit PM on these inputs. Listed in `pm_left_out.h` once proven, with those four
+  tests as its cover.
 - `mission_c1m1_nav_waynet_headless`: PM by design, PM's names. PM's load asks for `waynet_<block>` in
   `reader<block>.zbd` (`waynet_m1`, 0x00493a90); MW3's `c1/reader.zbd` has `waynet_1`, `waynet_ia1`,
   `waynet_mp1`. No waynet, no nav points. No PM test checks the nav points in a mission (the builder is
