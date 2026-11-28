@@ -11468,9 +11468,10 @@ std::string make_update_world(const std::string& root) {
 }
 }  // namespace ingame
 
-// Started alone (no RE_LAUNCHER, not a kit test run): the kit's start-up check finds v9.9.0 and its prompt opens over
-// the main menu, the game held; the prompt's UPDATE NOW reaches the page's close question (CLOSE AND UPDATE), which
-// is left unanswered, so nothing is downloaded or replaced.
+// Started alone (no RE_LAUNCHER, not a kit test run): the kit's start-up check finds v9.9.0 and says so in the corner
+// (the update notice, kit d094522), the game running on; the menu's keys then open the prompt over the main menu, the
+// game held; the prompt's UPDATE NOW reaches the page's close question (CLOSE AND UPDATE), which is left unanswered,
+// so nothing is downloaded or replaced.
 TEST(sdl_menu_in_game_update_prompt_when_started_alone) {
   if (!have_fonts()) return;
   namespace fs = std::filesystem;
@@ -11483,13 +11484,18 @@ TEST(sdl_menu_in_game_update_prompt_when_started_alone) {
   const std::string log = ingame::run(
       dir + "/run.log", {"--write-dir", wd, "--frames", "200", "-nofmv", "--hidden", "--nosound"},
       {{"RE_KIT_TEST", ingame::kUnset}, {"RE_LAUNCHER", ingame::kUnset}, {"MW3_UPDATE_WORLD", dir + "/world"}, {"MW3_UPDATE_KEY", key},
-       {"MW3_INSTALL_KIND", "folder"}, {"MW3_MENU_KEYS", "e@30"},
+       {"MW3_INSTALL_KIND", "folder"}, {"MW3_MENU_AT", "notice"}, {"MW3_MENU_KEYS", "e@30"},
        {"MW3_MENU_SHOT", dir + "/prompt.bmp@20;" + dir + "/close.bmp@45"}, {"MW3_MENU_CLOSE", "1"}},
       &code);
-  std::printf("  exit %d, prompt %d, update now %d, held %d\n", code, ingame::in(log, "mw3: menu: the update prompt: MechWarrior 3 9.9.0"),
-              ingame::in(log, "mw3: menu: the update prompt: UPDATE NOW"), ingame::in(log, "mw3: menu: the game resumed: 0 game frames"));
+  const size_t notice = log.find("mw3: menu: the update notice: MechWarrior 3 9.9.0 ("),
+               pressed = log.find("mw3: menu: its keys pressed at the update notice"),
+               prompt = log.find("mw3: menu: the update prompt: MechWarrior 3 9.9.0");
+  std::printf("  exit %d, notice %d, keys %d, prompt %d, update now %d, held %d\n", code, notice != std::string::npos,
+              pressed != std::string::npos, prompt != std::string::npos, ingame::in(log, "mw3: menu: the update prompt: UPDATE NOW"),
+              ingame::in(log, "mw3: menu: the game resumed: 0 game frames"));
   EXPECT(code == 0);
-  EXPECT(ingame::in(log, "mw3: menu: the update prompt: MechWarrior 3 9.9.0"));
+  EXPECT(notice != std::string::npos && pressed != std::string::npos && prompt != std::string::npos);
+  EXPECT(notice < pressed && pressed < prompt);  // the prompt waits for the keys, never over the game by itself
   EXPECT(ingame::in(log, "mw3: menu: the update prompt: UPDATE NOW") && !ingame::in(log, "mw3: menu: UPDATE NOW:"));
   EXPECT(ingame::in(log, "mw3: menu: the game resumed: 0 game frames"));
   EXPECT(ingame::read(dir + "/world/install/mw3") == "the installed program" && !fs::exists(wd + "/Backups"));
@@ -11518,7 +11524,7 @@ TEST(sdl_menu_in_game_update_page_under_the_launcher) {
   const std::string said = checked == std::string::npos ? "" : log.substr(checked, log.find('\n', checked) - checked);
   std::printf("  exit %d, [%s], prompt %d\n", code, said.c_str(), ingame::in(log, "update prompt"));
   EXPECT(code == 0);
-  EXPECT(!ingame::in(log, "the update prompt"));
+  EXPECT(!ingame::in(log, "the update prompt") && !ingame::in(log, "the update notice"));
   EXPECT(ingame::in(log, "mw3: menu: CHECK NOW") && ingame::in(said, "9.9.0"));
   EXPECT(fs::file_size(dir + "/page.bmp", ec) > 1000000);
   ingame::keep_shots(dir);

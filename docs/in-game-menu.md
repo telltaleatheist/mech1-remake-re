@@ -159,8 +159,11 @@ the kit's DESIGN.md, Updates). MechWarrior 3 fills `MenuHooks::update`:
   be updated, so it never checks or prompts, and the page says it has no source.
 
 The kit never prompts when `RE_LAUNCHER` is set: the launcher updates the games it
-starts. Started alone, the game checks once a day and prompts over its own screen
-when a newer version is out. The player can untick that on the page.
+starts. Started alone, the game checks once a day, and when a newer version is out
+it says so in the hint's corner (kit d094522: "UPDATE AVAILABLE 1.8.1 · press
+<keys>", for `update_notice_seconds`, 15 by default), the game running on. The
+menu's keys then open the prompt instead of the menu's first page. The player can
+untick the check on the page.
 
 MechWarrior 3's older updater (`src/frontend/sdl/sdl_update.*`,
 `src/upgrades/update/*`) stays for the launcher, which still uses it: its self
@@ -172,10 +175,12 @@ launcher onto the kit is a later item.
 The program takes these environment variables (`MenuPause`):
 
 - `MW3_MENU_AT=N[:keys]` opens the menu at the game's Nth frame and presses `keys`
-  in it (`d u l r` for the arrows, `e` for Enter).
+  in it (`d u l r` for the arrows, `e` for Enter). `MW3_MENU_AT=notice[:keys]`
+  instead presses the menu's own keys, as a player does, once the kit logs
+  "menu: the update notice:", which opens the waiting prompt.
 - `MW3_MENU_IN_MISSION=1` makes N count the frames of a campaign mission instead.
 - `MW3_MENU_KEYS=keys@F[;keys@F]` presses keys at the menu's Fth frame, however it
-  opened (the update prompt opens it by itself).
+  opened.
 - `MW3_MENU_SHOT=PATH[@F][;PATH@F]` takes captures at the menu's Fth frames
   (without `@F`, after `MW3_MENU_SHOT_AFTER` frames, 10 by default).
 - `MW3_MENU_CLOSE=1` closes the menu after the last capture.
@@ -197,9 +202,10 @@ The tests are in `tests/test_sdl_frontend.cpp`, `sdl_menu_in_game_*`:
 - a campaign mission held with its clock stopped (reached through `--campaign-chain`);
 - MechWarrior 3's own check on a damaged copy;
 - CHANGE's restart arguments;
-- UPDATES started alone: the kit's start-up prompt finds a newer MechWarrior 3 in the
-  stand-in world, and its UPDATE NOW reaches the close question (left unanswered);
-- UPDATES under the launcher (`RE_LAUNCHER`): no prompt, and CHECK NOW shows the
+- UPDATES started alone: the kit's start-up check finds a newer MechWarrior 3 in the
+  stand-in world and shows its notice; the menu's keys open the prompt (never before
+  them), and its UPDATE NOW reaches the close question (left unanswered);
+- UPDATES under the launcher (`RE_LAUNCHER`): no notice or prompt, and CHECK NOW shows the
   newer release with its notes.
 - UPGRADES at the game's first frame: dimmed with its note, and Enter leaves the menu
   open.

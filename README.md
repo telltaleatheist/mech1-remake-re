@@ -46,6 +46,15 @@ Every release's full notes are on the [Releases](../../releases) page, and
 [CHANGES.md](CHANGES.md) lists everything the rebuild changes from the
 original.
 
+**1.8.1 (2026-11-28)** (the full notes are in
+[docs/release-notes-1.8.1.md](docs/release-notes-1.8.1.md)): Windows zip
+players, download this one by hand once: 1.8.0's in-game UPDATE NOW could not
+replace the game's folder, and updates from inside the game work from 1.8.1
+on (the Setup, Mac and Linux copies weren't affected); a new version found at
+start is a small notice in the corner with the keys to press, instead of the
+update screen over the game; a copy at the very top of a drive says up front
+that it can't update itself.
+
 **1.8.0 (2026-11-28)** (the full notes are in
 [docs/release-notes-1.8.0.md](docs/release-notes-1.8.0.md)): a setup menu
 inside the game (Cmd + Shift + F1 on the Mac, Shift + Alt + F1 elsewhere)
